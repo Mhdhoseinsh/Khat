@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>خط‌خطی | بازی نقاشی و حدس آنلاین</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FBF6EC;
+  --paper-dim:#F2EAD8;
+  --ink:#22252B;
+  --ink-soft:#5B5F68;
+  --navy:#1F2A44;
+  --teal:#2FB6A6;
+  --teal-dark:#22897C;
+  --coral:#FF6A5B;
+  --coral-dark:#E5503F;
+  --yellow:#FFC857;
+  --violet:#7C83FD;
+  --pink:#FF8FB1;
+  --line: rgba(34,37,43,.16);
+  --shadow-ink: rgba(31,42,68,.85);
+  --radius: 18px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  margin:0;
+  font-family:'Vazirmatn',Tahoma,'Segoe UI',Arial,sans-serif;
+  background:
+    radial-gradient(circle at 1px 1px, rgba(34,37,43,.06) 1px, transparent 0) 0 0/22px 22px,
+    var(--paper);
+  color:var(--ink);
+  min-height:100%;
+  overflow-x:hidden;
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important;}
+}
+button{font-family:inherit;}
+input,button,select,textarea{font-size:16px;}
+.screen{min-height:100vh; padding:20px 16px 40px; display:flex; flex-direction:column; align-items:center;}
+.wrap{width:100%; max-width:960px;}
+
+/* ---------- buttons & inputs ---------- */
+.btn{
+  font-family:inherit; font-weight:700; font-size:16px; cursor:pointer;
+  border:2.5px solid var(--ink); border-radius:14px; padding:13px 22px;
+  background:#fff; color:var(--ink);
+  box-shadow:4px 4px 0 var(--ink);
+  transition:transform .08s ease, box-shadow .08s ease;
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  -webkit-user-select:none; user-select:none;
+}
+.btn:active{transform:translate(3px,3px); box-shadow:1px 1px 0 var(--ink);}
+.btn:disabled{opacity:.45; cursor:not-allowed; box-shadow:4px 4px 0 var(--ink);}
+.btn:disabled:active{transform:none;}
+.btn-primary{background:var(--teal); color:#fff;}
+.btn-coral{background:var(--coral); color:#fff;}
+.btn-yellow{background:var(--yellow); color:var(--ink);}
+.btn-ghost{background:transparent;}
+.btn-sm{padding:8px 14px; font-size:14px; border-width:2px; box-shadow:3px 3px 0 var(--ink); border-radius:11px;}
+.btn-block{width:100%;}
+.btn-icon{padding:9px 12px;}
+
+.field{margin-bottom:14px; text-align:right;}
+.field label{display:block; font-size:13px; font-weight:600; color:var(--ink-soft); margin-bottom:6px;}
+.input{
+  width:100%; padding:13px 14px; border-radius:12px; border:2.5px solid var(--ink);
+  background:#fff; color:var(--ink); font-weight:600; outline:none; text-align:right;
+}
+.input:focus{border-color:var(--teal);}
+.input::placeholder{color:#B9B4A6; font-weight:500;}
+
+/* ---------- cards ---------- */
+.card{
+  background:#fff; border:2.5px solid var(--ink); border-radius:var(--radius);
+  box-shadow:6px 6px 0 var(--shadow-ink); padding:22px;
+}
+.tilt{transform:rotate(-.6deg);}
+.tilt2{transform:rotate(.5deg);}
+
+/* ---------- toast (fixed: opacity/visibility driven, never intrudes when idle) ---------- */
+#toast{
+  position:fixed; top:16px; left:50%;
+  transform:translateX(-50%) translateY(-8px);
+  background:var(--ink); color:#fff; padding:12px 20px; border-radius:12px; font-weight:600;
+  font-size:14px; z-index:999; max-width:90vw; text-align:center;
+  box-shadow:4px 4px 0 rgba(0,0,0,.25);
+  opacity:0; visibility:hidden; pointer-events:none;
+  transition:opacity .3s ease, transform .3s cubic-bezier(.34,1.56,.64,1), visibility 0s linear .3s;
+}
+#toast.show{
+  opacity:1; visibility:visible; pointer-events:auto;
+  transform:translateX(-50%) translateY(0);
+  transition:opacity .3s ease, transform .3s cubic-bezier(.34,1.56,.64,1), visibility 0s linear 0s;
+}
+
+/* ---------- header / brand ---------- */
+.brand{display:flex; align-items:center; justify-content:center; gap:10px; margin:6px 0 6px;}
+.brand h1{font-size:26px; margin:0; font-weight:900; letter-spacing:-.3px;}
+.tag{color:var(--ink-soft); font-weight:600; font-size:14.5px; text-align:center; margin:0 0 26px;}
+
+/* ---------- home ---------- */
+.hero{display:flex; flex-direction:column; align-items:center; margin-bottom:18px;}
+.hero svg{width:min(280px,70vw); height:auto;}
+.home-actions{display:flex; flex-direction:column; gap:14px; width:100%; max-width:380px; margin:22px auto 0;}
+.divider-word{display:flex; align-items:center; gap:12px; color:var(--ink-soft); font-weight:700; font-size:13px; margin:2px 0;}
+.divider-word::before,.divider-word::after{content:"";flex:1;height:2px;background:var(--line);}
+.howto{max-width:520px; margin:26px auto 0; width:100%;}
+.howto summary{cursor:pointer; font-weight:700; color:var(--navy); text-align:center; list-style:none; font-size:14.5px;}
+.howto summary::-webkit-details-marker{display:none;}
+.howto[open] summary{margin-bottom:12px;}
+.howto-body{font-size:14px; line-height:2; color:var(--ink-soft); text-align:right;}
+.howto-body b{color:var(--ink);}
+
+/* ---------- lobby ---------- */
+.room-code-box{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:4px;}
+.room-code{font-size:34px; font-weight:900; letter-spacing:6px; color:var(--navy); background:var(--yellow);
+  border:2.5px solid var(--ink); border-radius:12px; padding:6px 18px; box-shadow:4px 4px 0 var(--ink);}
+.lobby-grid{display:grid; grid-template-columns:1.15fr .85fr; gap:18px; align-items:start; margin-top:20px;}
+@media (max-width:720px){.lobby-grid{grid-template-columns:1fr;}}
+.section-title{font-weight:800; font-size:15px; margin:0 0 12px; color:var(--navy);}
+.player-chip{display:flex; align-items:center; gap:10px; padding:9px 12px; border:2px dashed var(--line); border-radius:12px; margin-bottom:8px; background:var(--paper-dim);}
+.player-chip .nm{font-weight:700; flex:1; text-align:right;}
+.player-chip .host-badge{font-size:11px; background:var(--navy); color:#fff; padding:2px 8px; border-radius:8px; font-weight:700;}
+.avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:15px;border:2px solid var(--ink);flex-shrink:0;}
+.settings-row{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; gap:10px;}
+.settings-row .lbl{font-weight:700; font-size:14px;}
+.chips{display:flex; gap:8px; flex-wrap:wrap;}
+.chip{padding:7px 14px; border:2px solid var(--ink); border-radius:20px; font-weight:700; font-size:13.5px; cursor:pointer; background:#fff;}
+.chip.active{background:var(--teal); color:#fff;}
+.chip.readonly{cursor:default; opacity:.85;}
+.empty-note{color:var(--ink-soft); font-size:13.5px; text-align:center; padding:14px 0;}
+
+/* ---------- game screen ---------- */
+.game-wrap{width:100%; max-width:1020px;}
+.turn-banner{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap;}
+.turn-info{font-weight:700; font-size:14.5px; color:var(--navy);}
+.turn-info b{color:var(--coral-dark);}
+.timer-wrap{display:flex; align-items:center; gap:8px; flex-shrink:0;}
+.timer-ring{width:52px;height:52px; position:relative;}
+.timer-ring svg{transform:rotate(-90deg);}
+.timer-ring .txt{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:16px;}
+.timer-warn .txt{color:var(--coral-dark);}
+.timer-warn svg circle.fg{stroke:var(--coral) !important;}
+
+.game-grid{display:grid; grid-template-columns:1fr 250px; gap:16px; align-items:start;}
+@media (max-width:800px){.game-grid{grid-template-columns:1fr;}}
+
+.board-card{padding:14px; position:relative;}
+.word-display{text-align:center; font-weight:900; margin-bottom:10px; min-height:30px;}
+.word-display .blanks{font-size:24px; letter-spacing:8px; color:var(--navy);}
+.word-display .actual{font-size:24px; letter-spacing:1px; color:var(--coral-dark);}
+canvas#board{width:100%; aspect-ratio:4/3; display:block; background:#fff; border:2.5px solid var(--ink); border-radius:12px; touch-action:none; cursor:crosshair;}
+.canvas-disabled{cursor:default !important;}
+
+.toolbar{display:flex; align-items:center; gap:10px; margin-top:12px; flex-wrap:wrap; justify-content:center;}
+.swatches{display:flex; gap:6px; flex-wrap:wrap; justify-content:center;}
+.swatch{width:26px;height:26px;border-radius:50%; border:2px solid var(--ink); cursor:pointer; flex-shrink:0;}
+.swatch.sel{outline:3px solid var(--navy); outline-offset:2px;}
+.sizes{display:flex; gap:6px;}
+.size-btn{width:34px;height:34px;border-radius:50%;border:2px solid var(--ink); background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center;}
+.size-btn .dot{background:var(--ink); border-radius:50%;}
+.size-btn.sel{background:var(--paper-dim); outline:2px solid var(--teal);}
+.tool-actions{display:flex; gap:8px;}
+
+.side-col{display:flex; flex-direction:column; gap:14px;}
+.scoreboard{max-height:230px; overflow-y:auto;}
+.score-row{display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1.5px dashed var(--line);}
+.score-row:last-child{border-bottom:none;}
+.score-row .nm{flex:1; font-weight:700; font-size:14px; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.score-row .sc{font-weight:900; color:var(--teal-dark); font-size:14.5px;}
+.score-row.drawing-now{background:var(--yellow); border-radius:10px; padding:7px 8px; border-bottom:none;}
+.score-row.guessed .nm::after{content:" ✓"; color:var(--teal-dark);}
+.score-row.offline{opacity:.5;}
+.score-row.offline .nm::after{content:" (قطع شد)"; color:var(--ink-soft); font-weight:600; font-size:11px;}
+
+.chat-card{display:flex; flex-direction:column; height:290px;}
+.chat-list{flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px; padding-left:2px;}
+.chat-msg{font-size:13.5px; padding:6px 10px; border-radius:10px; background:var(--paper-dim); line-height:1.6;}
+.chat-msg b{color:var(--navy);}
+.chat-msg.correct{background:#E4F7EE; color:var(--teal-dark); font-weight:800; text-align:center;}
+.chat-msg.system{background:transparent; color:var(--ink-soft); text-align:center; font-weight:600;}
+.chat-form{display:flex; gap:8px; margin-top:10px;}
+.chat-form input{flex:1;}
+
+.choose-overlay,.turnend-overlay{
+  position:absolute; inset:0; background:rgba(251,246,234,.97); border-radius:12px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:20px; text-align:center; z-index:5;
+}
+.choose-words{display:flex; gap:10px; flex-wrap:wrap; justify-content:center;}
+.word-choice-btn{font-size:19px; font-weight:800; padding:16px 22px;}
+.reveal-word{font-size:26px; font-weight:900; color:var(--coral-dark);}
+
+.leaderboard-mini{display:flex; flex-direction:column; gap:6px; width:100%; max-width:280px;}
+.lb-row{display:flex; align-items:center; gap:8px; font-size:14px; font-weight:700;}
+.lb-row .p{color:var(--teal-dark); font-weight:900;}
+
+/* ---------- final ---------- */
+.final-list{display:flex; flex-direction:column; gap:10px; margin:22px 0;}
+.final-row{display:flex; align-items:center; gap:14px; padding:14px 16px;}
+.final-row .rank{font-size:22px; font-weight:900; width:34px; text-align:center;}
+.final-row .nm{flex:1; font-weight:800; font-size:17px; text-align:right;}
+.final-row .sc{font-weight:900; font-size:19px; color:var(--teal-dark);}
+.final-row.r1{background:var(--yellow);}
+.final-row.r2{background:#EDEDED;}
+.final-row.r3{background:#F3D9C4;}
+.final-actions{display:flex; gap:12px; justify-content:center; flex-wrap:wrap;}
+
+.confetti-layer{position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:998;}
+.confetti-piece{position:absolute; top:-20px; border-radius:2px; animation:fall linear forwards;}
+@keyframes fall{to{transform:translateY(110vh) rotate(540deg); opacity:.9;}}
+
+.pop{animation:popIn .28s cubic-bezier(.34,1.56,.64,1);}
+@keyframes popIn{from{transform:scale(.7); opacity:0;} to{transform:scale(1); opacity:1;}}
+.fadeUp{animation:fadeUp .35s ease both;}
+@keyframes fadeUp{from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);}}
+
+.conn-banner{position:fixed; bottom:0; left:0; right:0; background:var(--coral); color:#fff; text-align:center; font-weight:700; font-size:13.5px; padding:10px; z-index:1000; display:none;}
+.conn-banner.show{display:block;}
+
+.footer-note{margin-top:30px; font-size:12px; color:var(--ink-soft); text-align:center; opacity:.75; max-width:420px;}
+</style>
+</head>
+<body>
+<div id="toast"></div>
+<div id="connBanner" class="conn-banner">اتصال قطع شد — در حال تلاش برای اتصال دوباره...</div>
+<div id="app"></div>
+<script>
+(function(){
+"use strict";
+
+/* ============================= UTIL ============================= */
+const $ = (sel,root)=> (root||document).querySelector(sel);
+const $$ = (sel,root)=> Array.from((root||document).querySelectorAll(sel));
+const app = $('#app');
+
+function toast(msg, ms){
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._h);
+  toast._h = setTimeout(()=> t.classList.remove('show'), ms||2600);
+}
+function escapeHtml(s){
+  return (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function clamp(n,a,b){return Math.max(a,Math.min(b,n));}
+function genLocalId(prefix){ return (prefix||'id')+'_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
+function faNum(n){
+  const map = {'0':'۰','1':'۱','2':'۲','3':'۳','4':'۴','5':'۵','6':'۶','7':'۷','8':'۸','9':'۹'};
+  return n.toString().split('').map(c=> map[c]!==undefined?map[c]:c).join('');
+}
+const PALETTE = ['#FF6A5B','#2FB6A6','#7C83FD','#FFC857','#FF8FB1','#59C36A','#5AA9E6','#C77DFF'];
+function colorFor(idx){ return PALETTE[idx % PALETTE.length]; }
+
+/* ============================= WEBSOCKET ============================= */
+let ws = null;
+let wsReady = false;
+let reconnectAttempted = false;
+
+function connectWs(){
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(proto + '//' + location.host);
+  ws.addEventListener('open', ()=>{
+    wsReady = true;
+    $('#connBanner').classList.remove('show');
+  });
+  ws.addEventListener('message', (ev)=>{
+    let msg;
+    try{ msg = JSON.parse(ev.data); }catch(e){ return; }
+    onServerMessage(msg);
+  });
+  ws.addEventListener('close', ()=>{
+    wsReady = false;
+    if(S.code && S.screen !== 'home'){
+      $('#connBanner').classList.add('show');
+    }
+  });
+  ws.addEventListener('error', ()=>{});
+}
+function sendMsg(type, data){
+  if(!ws || ws.readyState !== 1) return;
+  ws.send(JSON.stringify(Object.assign({type}, data||{})));
+}
+connectWs();
+
+/* ============================= STATE ============================= */
+const S = {
+  me: { id:null, name:'' },
+  screen: null, // home | lobby | game | final
+  code: null,
+  isHost: false,
+  meta: null,
+  players: {},
+  tool: { color:'#22252B', size:6, mode:'pen' },
+  drawing: false,
+  curStrokeId: null,
+  localStrokes: [],
+  remoteStrokes: {},
+  lastTurnSeq: null,
+};
+
+/* ============================= ROUTER ============================= */
+function goTo(screen){
+  if(S.screen === screen) return;
+  S.screen = screen;
+  app.innerHTML = '';
+  if(screen==='home') mountHome();
+  else if(screen==='lobby') mountLobby();
+  else if(screen==='game') mountGame();
+  else if(screen==='final') mountFinal();
+}
+
+/* ============================= SERVER MESSAGE DISPATCH ============================= */
+function onServerMessage(msg){
+  switch(msg.type){
+    case 'joined':
+      S.code = msg.code; S.me.id = msg.playerId; S.isHost = msg.isHost;
+      goTo('lobby');
+      break;
+    case 'errorMsg':
+      toast(msg.message);
+      break;
+    case 'state': {
+      const prevStatus = S.meta ? S.meta.status : null;
+      const prevSeq = S.meta ? S.meta.turnSeq : null;
+      S.meta = msg.meta; S.players = msg.players;
+      S.isHost = msg.meta.hostId === S.me.id;
+      if(msg.meta.status === 'lobby') goTo('lobby');
+      else if(msg.meta.status === 'final') goTo('final');
+      else goTo('game');
+      if(S.screen === 'lobby') renderLobbyDynamic();
+      if(S.screen === 'game') updateGameDynamic(prevStatus, prevSeq);
+      if(S.screen === 'final') renderFinalDynamic();
+      break;
+    }
+    case 'chatMessage':
+      appendChatMessage(msg);
+      break;
+    case 'canvasSnapshot':
+      S.localStrokes = msg.strokes || [];
+      S.remoteStrokes = {};
+      redrawAll(msg.strokes || []);
+      break;
+    case 'strokeStart': {
+      const stroke = {id:msg.id, tool:msg.tool, color:msg.color, size:msg.size, points:[msg.point]};
+      S.remoteStrokes[msg.id] = stroke;
+      drawSegment(stroke, 0, 0);
+      break;
+    }
+    case 'strokePoint': {
+      const st = S.remoteStrokes[msg.id];
+      if(st && msg.point){ st.points.push(msg.point); drawSegment(st, st.points.length-2, st.points.length-1); }
+      break;
+    }
+    case 'strokeEnd':
+      delete S.remoteStrokes[msg.id];
+      break;
+  }
+}
+
+/* ============================= HOME ============================= */
+function mountHome(){
+  const params = new URLSearchParams(location.search);
+  const prefillCode = (params.get('room')||'').toUpperCase().slice(0,5);
+
+  app.innerHTML = `
+  <div class="screen">
+    <div class="wrap" style="max-width:460px;">
+      <div class="hero">
+        ${horseSvg()}
+      </div>
+      <div class="brand"><h1>خط‌خطی</h1></div>
+      <p class="tag">یکی می‌کشد، بقیه حدس می‌زنند 🎨</p>
+
+      <div class="card tilt">
+        <div class="field">
+          <label>اسمت چیه؟</label>
+          <input class="input" id="nameInput" maxlength="16" placeholder="مثلاً نیلوفر">
+        </div>
+        <div class="home-actions">
+          <button class="btn btn-primary btn-block" id="createBtn">ساخت اتاق جدید</button>
+          <div class="divider-word">یا</div>
+          <div class="field" style="margin-bottom:8px;">
+            <input class="input" id="codeInput" maxlength="5" placeholder="کد اتاق را وارد کن" style="text-align:center; letter-spacing:4px; font-weight:800; text-transform:uppercase;" value="${escapeHtml(prefillCode)}">
+          </div>
+          <button class="btn btn-coral btn-block" id="joinBtn">پیوستن به اتاق</button>
+        </div>
+      </div>
+
+      <details class="howto">
+        <summary>راهنمای بازی</summary>
+        <div class="howto-body">
+          ۱. یک نفر <b>نقاش</b> می‌شود و یک کلمه از بین ۳ گزینه انتخاب می‌کند.<br>
+          ۲. نقاش کلمه را روی تخته می‌کشد، بقیه حدس می‌زنند.<br>
+          ۳. هرکس زودتر درست حدس بزند، <b>امتیاز بیشتری</b> می‌گیرد.<br>
+          ۴. وقتی همه یک‌بار نقاش شدند، یک <b>راند</b> تمام می‌شود (حداکثر ۳ راند).<br>
+          ۵. میزبان می‌تواند زمان هر نوبت و تعداد راندها را در لابی تنظیم کند.
+        </div>
+      </details>
+    </div>
+  </div>`;
+
+  $('#createBtn').onclick = onCreateRoom;
+  $('#joinBtn').onclick = onJoinRoom;
+  $('#codeInput').addEventListener('input', e=>{ e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5); });
+  $('#nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onCreateRoom(); });
+  $('#codeInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onJoinRoom(); });
+  if(prefillCode) setTimeout(()=> $('#nameInput').focus(), 50);
+}
+
+function horseSvg(){
+  return `<svg viewBox="0 0 280 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path id="horsePath" d="M40 140 Q35 100 55 90 Q45 70 60 55 Q65 35 90 35 Q100 20 120 28 Q140 15 155 35 Q175 32 180 55 Q200 60 198 80 Q215 85 210 100 L215 145 L198 145 L195 115 Q185 130 165 130 L165 148 L150 148 L150 132 Q120 135 100 128 L95 148 L80 148 L82 122 Q55 118 48 140 Z"
+      stroke="#22252B" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <circle cx="178" cy="48" r="3" fill="#22252B"/>
+  </svg>
+  <style>
+    #horsePath{ stroke-dasharray:900; stroke-dashoffset:900; animation:draw 2.4s ease forwards; }
+    @keyframes draw{ to{ stroke-dashoffset:0; } }
+  </style>`;
+}
+
+function onCreateRoom(){
+  const name = ($('#nameInput').value||'').trim().slice(0,16) || 'بازیکن';
+  S.me.name = name;
+  sendMsg('createRoom', {name});
+}
+function onJoinRoom(){
+  const name = ($('#nameInput').value||'').trim().slice(0,16) || 'بازیکن';
+  const code = ($('#codeInput').value||'').trim().toUpperCase();
+  if(code.length < 4){ toast('کد اتاق را کامل وارد کن'); return; }
+  S.me.name = name;
+  sendMsg('joinRoom', {name, code});
+}
+
+/* ============================= LOBBY ============================= */
+function mountLobby(){
+  app.innerHTML = `
+  <div class="screen">
+    <div class="wrap" style="max-width:760px;">
+      <div class="brand"><h1 style="font-size:20px;">خط‌خطی</h1></div>
+      <div class="room-code-box">
+        <span style="font-weight:700; color:var(--ink-soft); font-size:14px;">کد اتاق:</span>
+        <span class="room-code" id="roomCodeTxt">${S.code}</span>
+        <button class="btn btn-sm btn-ghost" id="copyLinkBtn" title="کپی لینک دعوت">کپی لینک</button>
+      </div>
+      <p class="tag" style="margin-top:6px;">این کد یا لینک را برای دوستانت بفرست</p>
+
+      <div class="lobby-grid">
+        <div class="card tilt">
+          <div class="section-title">بازیکن‌ها (<span id="playerCount">1</span>/۸)</div>
+          <div id="playerList"></div>
+        </div>
+        <div class="card tilt2">
+          <div class="section-title">تنظیمات بازی</div>
+          <div class="settings-row">
+            <span class="lbl">تعداد راند</span>
+            <div class="chips" id="roundsChips"></div>
+          </div>
+          <div class="settings-row">
+            <span class="lbl">زمان هر نوبت</span>
+          </div>
+          <div class="chips" id="timeChips" style="margin-bottom:18px;"></div>
+          <button class="btn btn-primary btn-block" id="startBtn">شروع بازی</button>
+          <div id="hostHint" class="empty-note" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  $('#copyLinkBtn').onclick = ()=>{
+    const url = location.origin + '/?room=' + S.code;
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(()=> toast('لینک کپی شد ✓')).catch(()=> toast(url));
+    } else { toast(url); }
+  };
+  $('#startBtn').onclick = ()=> sendMsg('startGame', {});
+  renderLobbyDynamic();
+}
+
+function renderLobbyDynamic(){
+  if(S.screen !== 'lobby' || !S.meta) return;
+  const players = Object.values(S.players).filter(p=>p.connected).sort((a,b)=> (a.colorIdx-b.colorIdx));
+  $('#playerCount').textContent = players.length;
+  $('#playerList').innerHTML = players.map(p=> `
+    <div class="player-chip">
+      <div class="avatar" style="background:${colorFor(p.colorIdx)}">${escapeHtml((p.name||'?').slice(0,1))}</div>
+      <span class="nm">${escapeHtml(p.name)}</span>
+      ${p.id===S.meta.hostId ? '<span class="host-badge">میزبان</span>' : ''}
+    </div>`).join('') || '<div class="empty-note">در انتظار بازیکن‌ها...</div>';
+
+  const roundsChips = $('#roundsChips');
+  roundsChips.innerHTML = [1,2,3].map(r=> `<button class="chip ${S.meta.rounds===r?'active':''} ${S.isHost?'':'readonly'}" data-r="${r}">${faNum(r)} راند</button>`).join('');
+  const timeChips = $('#timeChips');
+  const times = [30,45,60,90,120];
+  timeChips.innerHTML = times.map(t=> `<button class="chip ${S.meta.turnSeconds===t?'active':''} ${S.isHost?'':'readonly'}" data-t="${t}">${faNum(t)} ثانیه</button>`).join('');
+
+  if(S.isHost){
+    $$('.chip[data-r]').forEach(b=> b.onclick = ()=> sendMsg('updateSettings', {rounds: parseInt(b.dataset.r)}));
+    $$('.chip[data-t]').forEach(b=> b.onclick = ()=> sendMsg('updateSettings', {turnSeconds: parseInt(b.dataset.t)}));
+    $('#startBtn').style.display = '';
+    $('#startBtn').disabled = players.length < 2;
+    $('#hostHint').style.display = players.length < 2 ? 'block' : 'none';
+    $('#hostHint').textContent = 'برای شروع حداقل ۲ بازیکن لازم است';
+  } else {
+    $('#startBtn').style.display = 'none';
+    $('#hostHint').style.display = 'block';
+    $('#hostHint').textContent = 'منتظر بمان تا میزبان بازی را شروع کند...';
+  }
+}
+
+/* ============================= GAME SCREEN ============================= */
+function mountGame(){
+  app.innerHTML = `
+  <div class="screen">
+    <div class="game-wrap">
+      <div class="turn-banner">
+        <div class="turn-info" id="turnInfo">—</div>
+        <div class="timer-wrap">
+          <div class="timer-ring" id="timerRing">
+            <svg width="52" height="52" viewBox="0 0 52 52">
+              <circle cx="26" cy="26" r="22" stroke="#E9E2D0" stroke-width="5" fill="none"/>
+              <circle class="fg" cx="26" cy="26" r="22" stroke="var(--teal)" stroke-width="5" fill="none"
+                stroke-dasharray="138.2" stroke-dashoffset="0" stroke-linecap="round" id="timerCircle"/>
+            </svg>
+            <div class="txt" id="timerTxt">--</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="game-grid">
+        <div class="board-card card">
+          <div class="word-display" id="wordDisplay"></div>
+          <div style="position:relative;">
+            <canvas id="board" width="800" height="600"></canvas>
+            <div class="choose-overlay" id="chooseOverlay" style="display:none;"></div>
+            <div class="turnend-overlay" id="turnendOverlay" style="display:none;"></div>
+          </div>
+          <div class="toolbar" id="toolbar" style="display:none;">
+            <div class="swatches" id="swatches"></div>
+            <div class="sizes" id="sizes"></div>
+            <div class="tool-actions">
+              <button class="btn btn-sm btn-icon" id="eraserBtn" title="پاک‌کن">🧽</button>
+              <button class="btn btn-sm btn-icon" id="undoBtn" title="واگرد">↩</button>
+              <button class="btn btn-sm btn-icon" id="clearBtn" title="پاک کردن همه">🗑</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="side-col">
+          <div class="card scoreboard" id="scoreCard">
+            <div class="section-title">امتیازها</div>
+            <div id="scoreList"></div>
+          </div>
+          <div class="card chat-card">
+            <div class="section-title">حدس‌ها</div>
+            <div class="chat-list" id="chatList"></div>
+            <form class="chat-form" id="guessForm">
+              <input class="input" id="guessInput" placeholder="حدست چیه؟" autocomplete="off">
+              <button class="btn btn-primary btn-icon" type="submit">فرستادن</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  setupCanvas();
+  setupToolbar();
+  $('#guessForm').addEventListener('submit', onSubmitGuess);
+  S.lastTurnSeq = null;
+  updateGameDynamic(null, null);
+  startTimerLoop();
+}
+
+function startTimerLoop(){
+  clearInterval(startTimerLoop._t);
+  startTimerLoop._t = setInterval(updateTimerDisplay, 250);
+}
+function updateTimerDisplay(){
+  if(S.screen !== 'game' || !S.meta) return;
+  const ring = $('#timerCircle'); const ringWrap = $('#timerRing'); const timerTxt = $('#timerTxt');
+  if(!ring) return;
+  if(S.meta.status === 'drawing'){
+    const total = S.meta.turnSeconds*1000;
+    const left = Math.max(0, S.meta.turnEndAt - Date.now());
+    const ratio = clamp(left/total, 0, 1);
+    const C = 138.2;
+    ring.setAttribute('stroke-dashoffset', (C*(1-ratio)).toFixed(1));
+    const secs = Math.ceil(left/1000);
+    timerTxt.textContent = faNum(secs);
+    ringWrap.classList.toggle('timer-warn', secs<=10);
+  } else {
+    ring.setAttribute('stroke-dashoffset','0');
+    timerTxt.textContent = '⏳';
+    ringWrap.classList.remove('timer-warn');
+  }
+}
+
+function updateGameDynamic(prevStatus, prevSeq){
+  const meta = S.meta;
+  const players = S.players;
+  if(!meta) return;
+  const drawer = players[meta.currentDrawerId];
+  const iAmDrawer = meta.currentDrawerId === S.me.id;
+
+  $('#turnInfo').innerHTML = `راند <b>${faNum(meta.currentRound)}</b> از ${faNum(meta.rounds)} · نوبت رسم: <b>${escapeHtml(drawer?drawer.name:'')}</b>`;
+  updateTimerDisplay();
+
+  if(meta.turnSeq !== S.lastTurnSeq){
+    clearCanvasLocal();
+    S.localStrokes = [];
+    S.remoteStrokes = {};
+    $('#chatList').innerHTML = '';
+    S.lastTurnSeq = meta.turnSeq;
+  }
+
+  const wd = $('#wordDisplay');
+  if(meta.status === 'drawing' || meta.status === 'turnEnd'){
+    if(iAmDrawer || meta.status==='turnEnd'){
+      const w = meta.status==='turnEnd' ? meta.lastWordReveal : meta.currentWord;
+      wd.innerHTML = `<span class="actual">${escapeHtml(w||'')}</span>`;
+    } else {
+      const blanks = Array(meta.wordLen||0).fill('ـ').join(' ');
+      wd.innerHTML = `<span class="blanks">${escapeHtml(blanks)}</span>`;
+    }
+  } else {
+    wd.innerHTML = '';
+  }
+
+  const chooseOv = $('#chooseOverlay');
+  const endOv = $('#turnendOverlay');
+  const toolbar = $('#toolbar');
+  const guessForm = $('#guessForm');
+  const canvas = $('#board');
+
+  if(meta.status === 'choosing'){
+    if(iAmDrawer){
+      chooseOv.style.display = 'flex';
+      chooseOv.innerHTML = `<div style="font-weight:800; font-size:16px;">یک کلمه انتخاب کن تا بکشی</div>
+        <div class="choose-words">${(meta.wordChoices||[]).map(w=>`<button class="btn btn-yellow word-choice-btn" data-w="${escapeHtml(w)}">${escapeHtml(w)}</button>`).join('')}</div>`;
+      $$('.word-choice-btn', chooseOv).forEach(b=> b.onclick = ()=> sendMsg('chooseWord', {word: b.dataset.w}));
+    } else {
+      chooseOv.style.display = 'flex';
+      chooseOv.innerHTML = `<div class="pop" style="font-weight:800; font-size:16px;">${escapeHtml(drawer?drawer.name:'')} در حال انتخاب کلمه است...</div>`;
+    }
+    endOv.style.display = 'none';
+    toolbar.style.display = 'none';
+    guessForm.style.display = 'none';
+    canvas.classList.add('canvas-disabled');
+  } else if(meta.status === 'drawing'){
+    chooseOv.style.display = 'none';
+    endOv.style.display = 'none';
+    toolbar.style.display = iAmDrawer ? 'flex' : 'none';
+    canvas.classList.toggle('canvas-disabled', !iAmDrawer);
+    const alreadyGuessed = (meta.guessedIds||[]).indexOf(S.me.id) !== -1;
+    if(iAmDrawer){
+      guessForm.style.display = 'none';
+    } else {
+      guessForm.style.display = 'flex';
+      $('#guessInput').disabled = alreadyGuessed;
+      $('#guessInput').placeholder = alreadyGuessed ? '🎉 درست حدس زدی! منتظر بمان...' : 'حدست چیه؟';
+    }
+  } else if(meta.status === 'turnEnd'){
+    chooseOv.style.display = 'none';
+    toolbar.style.display = 'none';
+    guessForm.style.display = 'none';
+    canvas.classList.add('canvas-disabled');
+    endOv.style.display = 'flex';
+    const scores = meta.turnScores || {};
+    const rows = Object.keys(scores).map(pid=>{
+      const p = players[pid]; if(!p) return '';
+      return `<div class="lb-row"><span>${escapeHtml(p.name)}</span><span class="p">+${faNum(scores[pid])}</span></div>`;
+    }).join('');
+    endOv.innerHTML = `<div style="font-weight:700; color:var(--ink-soft); font-size:14px;">کلمه این نوبت:</div>
+      <div class="reveal-word pop">${escapeHtml(meta.lastWordReveal||'')}</div>
+      <div class="leaderboard-mini">${rows || '<div class="empty-note">کسی حدس نزد 🙈</div>'}</div>
+      <div style="font-size:13px; color:var(--ink-soft); font-weight:600;">نوبت بعدی به‌زودی شروع می‌شود...</div>`;
+  }
+
+  const sorted = Object.values(players).sort((a,b)=> b.score - a.score);
+  $('#scoreList').innerHTML = sorted.map(p=>{
+    const isDrawingNow = p.id === meta.currentDrawerId && (meta.status==='drawing'||meta.status==='choosing');
+    const guessedNow = (meta.guessedIds||[]).indexOf(p.id) !== -1 && meta.status!=='choosing';
+    return `<div class="score-row ${isDrawingNow?'drawing-now':''} ${guessedNow?'guessed':''} ${p.connected?'':'offline'}">
+      <div class="avatar" style="width:26px;height:26px;font-size:12px;background:${colorFor(p.colorIdx)}">${escapeHtml((p.name||'?').slice(0,1))}</div>
+      <span class="nm">${escapeHtml(p.name)}${isDrawingNow?' ✏️':''}</span>
+      <span class="sc">${faNum(p.score||0)}</span>
+    </div>`;
+  }).join('');
+}
+
+function appendChatMessage(g){
+  const box = $('#chatList');
+  if(!box) return;
+  const div = document.createElement('div');
+  if(g.kind === 'correct'){
+    div.className = 'chat-msg correct';
+    div.textContent = `🎉 ${g.name} درست حدس زد! (+${faNum(g.points)})`;
+  } else {
+    div.className = 'chat-msg';
+    div.innerHTML = `<b>${escapeHtml(g.name)}:</b> ${escapeHtml(g.text)}`;
+  }
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function onSubmitGuess(e){
+  e.preventDefault();
+  const input = $('#guessInput');
+  const text = (input.value||'').trim();
+  if(!text) return;
+  input.value = '';
+  sendMsg('guess', {text});
+}
+
+/* ============================= CANVAS / DRAWING ============================= */
+let ctx = null;
+function setupCanvas(){
+  const canvas = $('#board');
+  ctx = canvas.getContext('2d');
+  clearCanvasLocal();
+
+  function toNorm(clientX, clientY){
+    const r = canvas.getBoundingClientRect();
+    return [ (clientX-r.left)/r.width, (clientY-r.top)/r.height ];
+  }
+  function isDrawerNow(){
+    return S.meta && S.meta.status==='drawing' && S.meta.currentDrawerId === S.me.id;
+  }
+  function pos(e){ return toNorm(e.clientX, e.clientY); }
+  function start(e){
+    if(!isDrawerNow()) return;
+    e.preventDefault();
+    S.drawing = true;
+    const [x,y] = pos(e);
+    const id = genLocalId('s');
+    S.curStrokeId = id;
+    const stroke = { id, tool:S.tool.mode, color:S.tool.color, size:S.tool.size, points:[[x,y]] };
+    S.localStrokes.push(stroke);
+    sendMsg('strokeStart', {id, tool:S.tool.mode, color:S.tool.color, size:S.tool.size, point:[x,y]});
+  }
+  function move(e){
+    if(!S.drawing || !isDrawerNow()) return;
+    e.preventDefault();
+    const [x,y] = pos(e);
+    const stroke = S.localStrokes[S.localStrokes.length-1];
+    if(!stroke) return;
+    const pts = stroke.points;
+    pts.push([x,y]);
+    drawSegment(stroke, pts.length-2, pts.length-1);
+    sendMsg('strokePoint', {id: stroke.id, point:[x,y]});
+  }
+  function end(){
+    if(!S.drawing) return;
+    S.drawing = false;
+    if(S.curStrokeId) sendMsg('strokeEnd', {id: S.curStrokeId});
+    S.curStrokeId = null;
+  }
+  canvas.addEventListener('pointerdown', start);
+  canvas.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', end);
+  canvas.addEventListener('pointercancel', end);
+}
+
+function drawSegment(stroke, i0, i1){
+  const canvas = $('#board');
+  if(!canvas || !ctx) return;
+  const p0 = stroke.points[i0], p1 = stroke.points[i1];
+  if(!p0||!p1) return;
+  ctx.save();
+  ctx.globalCompositeOperation = stroke.tool==='eraser' ? 'destination-out' : 'source-over';
+  ctx.strokeStyle = stroke.color;
+  ctx.lineWidth = stroke.size;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(p0[0]*canvas.width, p0[1]*canvas.height);
+  ctx.lineTo(p1[0]*canvas.width, p1[1]*canvas.height);
+  ctx.stroke();
+  ctx.restore();
+  if(stroke.points.length === 1){
+    ctx.save();
+    ctx.globalCompositeOperation = stroke.tool==='eraser' ? 'destination-out' : 'source-over';
+    ctx.fillStyle = stroke.color;
+    ctx.beginPath();
+    ctx.arc(p0[0]*canvas.width, p0[1]*canvas.height, stroke.size/2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+function redrawAll(strokes){
+  const canvas = $('#board');
+  if(!canvas || !ctx) return;
+  ctx.save(); ctx.globalCompositeOperation='source-over'; ctx.clearRect(0,0,canvas.width,canvas.height); ctx.restore();
+  (strokes||[]).forEach(st=>{
+    if(st.points.length <= 1){ drawSegment(st,0,0); return; }
+    for(let i=0;i<st.points.length-1;i++) drawSegment(st,i,i+1);
+  });
+}
+function clearCanvasLocal(){
+  const canvas = $('#board');
+  if(ctx && canvas){ ctx.save(); ctx.globalCompositeOperation='source-over'; ctx.clearRect(0,0,canvas.width,canvas.height); ctx.restore(); }
+}
+
+function setupToolbar(){
+  const colors = ['#22252B','#FFFFFF','#FF6A5B','#FFC857','#2FB6A6','#5AA9E6','#7C83FD','#FF8FB1','#59C36A','#8B5E34'];
+  const sw = $('#swatches');
+  sw.innerHTML = colors.map(c=> `<span class="swatch ${c===S.tool.color?'sel':''}" data-c="${c}" style="background:${c}; ${c==='#FFFFFF'?'box-shadow:inset 0 0 0 1px #ccc;':''}"></span>`).join('');
+  $$('.swatch', sw).forEach(el=> el.onclick = ()=>{
+    S.tool.color = el.dataset.c; S.tool.mode = 'pen';
+    $$('.swatch', sw).forEach(x=>x.classList.remove('sel'));
+    el.classList.add('sel');
+    $('#eraserBtn').style.outline = 'none';
+  });
+
+  const sizes = [3,7,14];
+  const sizesEl = $('#sizes');
+  sizesEl.innerHTML = sizes.map((s,i)=> `<button type="button" class="size-btn ${s===S.tool.size?'sel':''}" data-s="${s}"><span class="dot" style="width:${6+i*4}px;height:${6+i*4}px;"></span></button>`).join('');
+  $$('.size-btn', sizesEl).forEach(el=> el.onclick = ()=>{
+    S.tool.size = parseInt(el.dataset.s);
+    $$('.size-btn', sizesEl).forEach(x=>x.classList.remove('sel'));
+    el.classList.add('sel');
+  });
+
+  $('#eraserBtn').onclick = ()=>{
+    S.tool.mode = S.tool.mode==='eraser' ? 'pen' : 'eraser';
+    $('#eraserBtn').style.outline = S.tool.mode==='eraser' ? '2.5px solid var(--coral)' : 'none';
+  };
+  $('#undoBtn').onclick = ()=>{ sendMsg('undo', {}); };
+  $('#clearBtn').onclick = ()=>{ sendMsg('clearCanvas', {}); };
+}
+
+/* ============================= FINAL SCREEN ============================= */
+function mountFinal(){
+  app.innerHTML = `
+  <div class="screen">
+    <div class="wrap" style="max-width:480px;">
+      <div class="brand"><h1 style="font-size:24px;">🏆 نتیجه نهایی</h1></div>
+      <div class="final-list" id="finalList"></div>
+      <div class="final-actions" id="finalActions"></div>
+    </div>
+  </div>`;
+  fireConfetti();
+  renderFinalDynamic();
+}
+function renderFinalDynamic(){
+  if(S.screen !== 'final' || !S.meta) return;
+  const sorted = Object.values(S.players).sort((a,b)=> b.score-a.score);
+  const medals = ['🥇','🥈','🥉'];
+  $('#finalList').innerHTML = sorted.map((p,i)=> `
+    <div class="card final-row ${i===0?'r1':i===1?'r2':i===2?'r3':''} fadeUp" style="animation-delay:${i*80}ms">
+      <span class="rank">${medals[i]||('#'+faNum(i+1))}</span>
+      <div class="avatar" style="background:${colorFor(p.colorIdx)}">${escapeHtml((p.name||'?').slice(0,1))}</div>
+      <span class="nm">${escapeHtml(p.name)}</span>
+      <span class="sc">${faNum(p.score||0)}</span>
+    </div>`).join('');
+
+  const actions = $('#finalActions');
+  if(S.isHost){
+    actions.innerHTML = `<button class="btn btn-primary" id="againBtn">بازی دوباره</button><button class="btn btn-ghost" id="exitBtn">خروج</button>`;
+    $('#againBtn').onclick = ()=> sendMsg('playAgain', {});
+  } else {
+    actions.innerHTML = `<button class="btn btn-ghost" id="exitBtn">خروج</button>`;
+  }
+  $('#exitBtn').onclick = ()=>{
+    history.replaceState(null,'',location.pathname);
+    location.reload();
+  };
+}
+
+function fireConfetti(){
+  const layer = document.createElement('div');
+  layer.className = 'confetti-layer';
+  document.body.appendChild(layer);
+  const colors = PALETTE;
+  for(let i=0;i<60;i++){
+    const d = document.createElement('div');
+    d.className = 'confetti-piece';
+    const size = 6+Math.random()*7;
+    d.style.width = size+'px';
+    d.style.height = (size*0.5)+'px';
+    d.style.left = Math.random()*100+'vw';
+    d.style.background = colors[Math.floor(Math.random()*colors.length)];
+    d.style.animationDuration = (2.5+Math.random()*2)+'s';
+    d.style.animationDelay = (Math.random()*0.6)+'s';
+    layer.appendChild(d);
+  }
+  setTimeout(()=> layer.remove(), 5200);
+}
+
+/* ============================= BOOT ============================= */
+goTo('home');
+})();
+</script>
+</body>
+</html>
