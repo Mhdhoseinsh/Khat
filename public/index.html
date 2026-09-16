@@ -113,7 +113,7 @@ input,button,select,textarea{font-size:16px;}
 .tag{color:var(--text-soft); font-weight:600; font-size:14.5px; text-align:center; margin:0 0 26px;}
 
 /* ---------- home ---------- */
-.hero{display:flex; flex-direction:column; align-items:center; margin-bottom:18px;}
+.hero{display:flex; flex-direction:column; align-items:center; margin-bottom:18px; position:relative;}
 .hero svg{width:min(280px,70vw); height:auto; filter:drop-shadow(0 0 22px rgba(34,230,192,.25));}
 .home-actions{display:flex; flex-direction:column; gap:14px; width:100%; max-width:380px; margin:22px auto 0;}
 .divider-word{display:flex; align-items:center; gap:12px; color:var(--text-soft); font-weight:700; font-size:13px; margin:2px 0;}
@@ -239,6 +239,43 @@ canvas#board{
 .conn-banner.show{display:block;}
 
 .footer-note{margin-top:30px; font-size:12px; color:var(--text-soft); text-align:center; opacity:.85; max-width:420px;}
+
+/* ---------- screen transitions ---------- */
+#app{transition:opacity .2s ease, transform .25s cubic-bezier(.22,1,.36,1);}
+#app.screen-exit{opacity:0; transform:translateY(10px);}
+
+/* ---------- home: sparkles, badges, segmented toggle ---------- */
+.floaty{position:absolute; font-size:20px; animation:float 3.2s ease-in-out infinite; filter:drop-shadow(0 0 8px rgba(34,230,192,.35));}
+.floaty.f1{top:6px; left:8%; animation-delay:0s;}
+.floaty.f2{bottom:10px; right:6%; animation-delay:1s;}
+.floaty.f3{top:38%; right:0%; animation-delay:1.7s; font-size:16px;}
+@keyframes float{0%,100%{transform:translateY(0) rotate(0deg);} 50%{transform:translateY(-12px) rotate(10deg);}}
+
+.badge-row{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:14px 0 24px;}
+.badge-pill{padding:8px 14px; border-radius:20px; background:var(--surface); border:1px solid var(--border); font-size:12.5px; font-weight:700; color:var(--text-soft); opacity:0; animation:badgeIn .45s ease forwards;}
+.badge-pill:nth-child(1){animation-delay:.15s;}
+.badge-pill:nth-child(2){animation-delay:.28s;}
+.badge-pill:nth-child(3){animation-delay:.41s;}
+@keyframes badgeIn{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);}}
+
+.seg-toggle{display:flex; background:var(--bg); border:1px solid var(--border-strong); border-radius:14px; padding:4px; margin-bottom:18px; gap:4px;}
+.seg-btn{flex:1; padding:10px; border:none; border-radius:10px; background:transparent; color:var(--text-soft); font-weight:700; font-size:14px; cursor:pointer; transition:all .2s ease; font-family:inherit;}
+.seg-btn.active{background:linear-gradient(135deg,var(--brand),var(--brand2)); color:#04140F;}
+
+.pulse-glow:not(:disabled){animation:pulseGlow 2.2s ease-in-out infinite;}
+@keyframes pulseGlow{0%,100%{box-shadow:0 14px 30px -10px rgba(34,230,192,.5);} 50%{box-shadow:0 16px 40px -6px rgba(34,230,192,.85);}}
+
+/* ---------- letter-box word blanks ---------- */
+.letter-boxes{display:flex; gap:6px; justify-content:center; flex-wrap:wrap;}
+.letter-box{width:24px; height:32px; border-bottom:3px solid var(--brand); border-radius:4px; opacity:0; animation:fadeUp .3s ease both;}
+
+/* ---------- chat slide-in ---------- */
+.chat-msg.msgIn{animation:msgSlide .25s ease both;}
+@keyframes msgSlide{from{opacity:0; transform:translateX(10px);} to{opacity:1; transform:translateX(0);}}
+
+/* ---------- winner flourish ---------- */
+.final-row.r1 .rank{display:inline-block; animation:bounce 1.1s ease-in-out infinite;}
+@keyframes bounce{0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);}}
 </style>
 </head>
 <body>
@@ -308,6 +345,7 @@ connectWs();
 const S = {
   me: { id:null, name:'' },
   screen: null, // home | lobby | game | final
+  mounting: false,
   code: null,
   isHost: false,
   meta: null,
@@ -322,13 +360,25 @@ const S = {
 
 /* ============================= ROUTER ============================= */
 function goTo(screen){
-  if(S.screen === screen) return;
+  if(S.screen === screen) return false;
   S.screen = screen;
-  app.innerHTML = '';
-  if(screen==='home') mountHome();
-  else if(screen==='lobby') mountLobby();
-  else if(screen==='game') mountGame();
-  else if(screen==='final') mountFinal();
+  S.mounting = true;
+  const doMount = ()=>{
+    app.innerHTML = '';
+    if(screen==='home') mountHome();
+    else if(screen==='lobby') mountLobby();
+    else if(screen==='game') mountGame();
+    else if(screen==='final') mountFinal();
+    S.mounting = false;
+    requestAnimationFrame(()=> requestAnimationFrame(()=> app.classList.remove('screen-exit')));
+  };
+  if(app.children.length){
+    app.classList.add('screen-exit');
+    setTimeout(doMount, 170);
+  } else {
+    doMount();
+  }
+  return true;
 }
 
 /* ============================= SERVER MESSAGE DISPATCH ============================= */
@@ -346,12 +396,15 @@ function onServerMessage(msg){
       const prevSeq = S.meta ? S.meta.turnSeq : null;
       S.meta = msg.meta; S.players = msg.players;
       S.isHost = msg.meta.hostId === S.me.id;
-      if(msg.meta.status === 'lobby') goTo('lobby');
-      else if(msg.meta.status === 'final') goTo('final');
-      else goTo('game');
-      if(S.screen === 'lobby') renderLobbyDynamic();
-      if(S.screen === 'game') updateGameDynamic(prevStatus, prevSeq);
-      if(S.screen === 'final') renderFinalDynamic();
+      let changed;
+      if(msg.meta.status === 'lobby') changed = goTo('lobby');
+      else if(msg.meta.status === 'final') changed = goTo('final');
+      else changed = goTo('game');
+      if(!changed && !S.mounting){
+        if(S.screen === 'lobby') renderLobbyDynamic();
+        if(S.screen === 'game') updateGameDynamic(prevStatus, prevSeq);
+        if(S.screen === 'final') renderFinalDynamic();
+      }
       break;
     }
     case 'chatMessage':
@@ -380,32 +433,44 @@ function onServerMessage(msg){
 }
 
 /* ============================= HOME ============================= */
+let homeMode = 'create';
 function mountHome(){
   const params = new URLSearchParams(location.search);
   const prefillCode = (params.get('room')||'').toUpperCase().slice(0,5);
+  homeMode = prefillCode ? 'join' : 'create';
 
   app.innerHTML = `
   <div class="screen">
-    <div class="wrap" style="max-width:460px;">
+    <div class="wrap" style="max-width:440px;">
       <div class="hero">
+        <span class="floaty f1">✨</span>
+        <span class="floaty f2">🎨</span>
+        <span class="floaty f3">⭐</span>
         ${horseSvg()}
       </div>
       <div class="brand"><h1>خط‌خطی</h1></div>
-      <p class="tag">یکی می‌کشد، بقیه حدس می‌زنند 🎨</p>
+      <p class="tag">یکی می‌کشد، بقیه حدس می‌زنند</p>
+
+      <div class="badge-row">
+        <div class="badge-pill">👥 ۲ تا ۸ نفر</div>
+        <div class="badge-pill">⚡ سرور رایگان</div>
+        <div class="badge-pill">🔄 تا ۳ راند</div>
+      </div>
 
       <div class="card tilt">
+        <div class="seg-toggle">
+          <button type="button" class="seg-btn" data-mode="create">ساخت اتاق</button>
+          <button type="button" class="seg-btn" data-mode="join">پیوستن به اتاق</button>
+        </div>
         <div class="field">
           <label>اسمت چیه؟</label>
           <input class="input" id="nameInput" maxlength="16" placeholder="مثلاً نیلوفر">
         </div>
-        <div class="home-actions">
-          <button class="btn btn-primary btn-block" id="createBtn">ساخت اتاق جدید</button>
-          <div class="divider-word">یا</div>
-          <div class="field" style="margin-bottom:8px;">
-            <input class="input" id="codeInput" maxlength="5" placeholder="کد اتاق را وارد کن" style="text-align:center; letter-spacing:4px; font-weight:800; text-transform:uppercase;" value="${escapeHtml(prefillCode)}">
-          </div>
-          <button class="btn btn-coral btn-block" id="joinBtn">پیوستن به اتاق</button>
+        <div class="field" id="joinCodeField" style="margin-bottom:8px;">
+          <label>کد اتاق</label>
+          <input class="input" id="codeInput" maxlength="5" placeholder="کد ۵ رقمی" style="text-align:center; letter-spacing:4px; font-weight:800; text-transform:uppercase;" value="${escapeHtml(prefillCode)}">
         </div>
+        <button class="btn btn-block pulse-glow" id="primaryActionBtn"></button>
       </div>
 
       <details class="howto">
@@ -421,10 +486,19 @@ function mountHome(){
     </div>
   </div>`;
 
-  $('#createBtn').onclick = onCreateRoom;
-  $('#joinBtn').onclick = onJoinRoom;
+  function applyHomeMode(){
+    $$('.seg-btn').forEach(b=> b.classList.toggle('active', b.dataset.mode===homeMode));
+    $('#joinCodeField').style.display = homeMode==='join' ? '' : 'none';
+    const btn = $('#primaryActionBtn');
+    btn.textContent = homeMode==='join' ? 'پیوستن به اتاق' : 'ساخت اتاق جدید';
+    btn.className = 'btn btn-block pulse-glow ' + (homeMode==='join' ? 'btn-coral' : 'btn-primary');
+  }
+  $$('.seg-btn').forEach(b=> b.onclick = ()=>{ homeMode = b.dataset.mode; applyHomeMode(); });
+  applyHomeMode();
+
+  $('#primaryActionBtn').onclick = ()=>{ homeMode==='join' ? onJoinRoom() : onCreateRoom(); };
   $('#codeInput').addEventListener('input', e=>{ e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5); });
-  $('#nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onCreateRoom(); });
+  $('#nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') (homeMode==='join' ? onJoinRoom() : onCreateRoom()); });
   $('#codeInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onJoinRoom(); });
   if(prefillCode) setTimeout(()=> $('#nameInput').focus(), 50);
 }
@@ -488,7 +562,7 @@ function mountLobby(){
             <span class="lbl">زمان هر نوبت</span>
           </div>
           <div class="chips" id="timeChips" style="margin-bottom:18px;"></div>
-          <button class="btn btn-primary btn-block" id="startBtn">شروع بازی</button>
+          <button class="btn btn-primary btn-block pulse-glow" id="startBtn">شروع بازی</button>
           <div id="hostHint" class="empty-note" style="display:none;"></div>
         </div>
       </div>
@@ -509,8 +583,8 @@ function renderLobbyDynamic(){
   if(S.screen !== 'lobby' || !S.meta) return;
   const players = Object.values(S.players).filter(p=>p.connected).sort((a,b)=> (a.colorIdx-b.colorIdx));
   $('#playerCount').textContent = players.length;
-  $('#playerList').innerHTML = players.map(p=> `
-    <div class="player-chip">
+  $('#playerList').innerHTML = players.map((p,i)=> `
+    <div class="player-chip fadeUp" style="animation-delay:${i*60}ms">
       <div class="avatar" style="background:${colorFor(p.colorIdx)}">${escapeHtml((p.name||'?').slice(0,1))}</div>
       <span class="nm">${escapeHtml(p.name)}</span>
       ${p.id===S.meta.hostId ? '<span class="host-badge">میزبان</span>' : ''}
@@ -648,8 +722,8 @@ function updateGameDynamic(prevStatus, prevSeq){
       const w = meta.status==='turnEnd' ? meta.lastWordReveal : meta.currentWord;
       wd.innerHTML = `<span class="actual">${escapeHtml(w||'')}</span>`;
     } else {
-      const blanks = Array(meta.wordLen||0).fill('ـ').join(' ');
-      wd.innerHTML = `<span class="blanks">${escapeHtml(blanks)}</span>`;
+      const boxes = Array(meta.wordLen||0).fill(0).map((_,i)=> `<span class="letter-box" style="animation-delay:${i*30}ms"></span>`).join('');
+      wd.innerHTML = `<div class="letter-boxes">${boxes}</div>`;
     }
   } else {
     wd.innerHTML = '';
@@ -665,7 +739,7 @@ function updateGameDynamic(prevStatus, prevSeq){
     if(iAmDrawer){
       chooseOv.style.display = 'flex';
       chooseOv.innerHTML = `<div style="font-weight:800; font-size:16px;">یک کلمه انتخاب کن تا بکشی</div>
-        <div class="choose-words">${(meta.wordChoices||[]).map(w=>`<button class="btn btn-yellow word-choice-btn" data-w="${escapeHtml(w)}">${escapeHtml(w)}</button>`).join('')}</div>`;
+        <div class="choose-words">${(meta.wordChoices||[]).map((w,i)=>`<button class="btn btn-yellow word-choice-btn fadeUp" style="animation-delay:${i*80}ms" data-w="${escapeHtml(w)}">${escapeHtml(w)}</button>`).join('')}</div>`;
       $$('.word-choice-btn', chooseOv).forEach(b=> b.onclick = ()=> sendMsg('chooseWord', {word: b.dataset.w}));
     } else {
       chooseOv.style.display = 'flex';
@@ -722,10 +796,11 @@ function appendChatMessage(g){
   if(!box) return;
   const div = document.createElement('div');
   if(g.kind === 'correct'){
-    div.className = 'chat-msg correct';
+    div.className = 'chat-msg correct msgIn';
     div.textContent = `🎉 ${g.name} درست حدس زد! (+${faNum(g.points)})`;
+    fireConfetti(16, 1400);
   } else {
-    div.className = 'chat-msg';
+    div.className = 'chat-msg msgIn';
     div.innerHTML = `<b>${escapeHtml(g.name)}:</b> ${escapeHtml(g.text)}`;
   }
   box.appendChild(div);
@@ -896,12 +971,13 @@ function renderFinalDynamic(){
   };
 }
 
-function fireConfetti(){
+function fireConfetti(count, duration){
+  count = count || 60; duration = duration || 5200;
   const layer = document.createElement('div');
   layer.className = 'confetti-layer';
   document.body.appendChild(layer);
   const colors = PALETTE;
-  for(let i=0;i<60;i++){
+  for(let i=0;i<count;i++){
     const d = document.createElement('div');
     d.className = 'confetti-piece';
     const size = 6+Math.random()*7;
@@ -909,11 +985,11 @@ function fireConfetti(){
     d.style.height = (size*0.5)+'px';
     d.style.left = Math.random()*100+'vw';
     d.style.background = colors[Math.floor(Math.random()*colors.length)];
-    d.style.animationDuration = (2.5+Math.random()*2)+'s';
-    d.style.animationDelay = (Math.random()*0.6)+'s';
+    d.style.animationDuration = (Math.min(2.5,duration/1000)+Math.random()*1.2)+'s';
+    d.style.animationDelay = (Math.random()*0.4)+'s';
     layer.appendChild(d);
   }
-  setTimeout(()=> layer.remove(), 5200);
+  setTimeout(()=> layer.remove(), duration+700);
 }
 
 /* ============================= BOOT ============================= */
