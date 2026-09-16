@@ -47,7 +47,6 @@ input,button,select,textarea{font-size:16px;}
 .screen{min-height:100vh; padding:0 16px 40px; display:flex; flex-direction:column; align-items:center;}
 .wrap{width:100%; max-width:960px;}
 
-/* ---------- icon helper ---------- */
 .ic{display:inline-block; vertical-align:middle; flex-shrink:0; line-height:0;}
 
 /* ---------- topbar ---------- */
@@ -267,240 +266,247 @@ canvas#board{
 .conn-banner{position:fixed; bottom:0; left:0; right:0; background:var(--coral); color:#1A0510; text-align:center; font-weight:700; font-size:13.5px; padding:10px; z-index:1000; display:none;}
 .conn-banner.show{display:block;}
 
-/* ---------- screen transitions ---------- */
 #app{transition:opacity .2s ease, transform .25s cubic-bezier(.22,1,.36,1);}
 #app.screen-exit{opacity:0; transform:translateY(10px);}
 
-/* ---------- pulse glow (used in lobby) ---------- */
 .pulse-glow:not(:disabled){animation:pulseGlow 2.2s ease-in-out infinite;}
 @keyframes pulseGlow{0%,100%{box-shadow:0 14px 30px -10px rgba(108,107,255,.5);} 50%{box-shadow:0 16px 40px -6px rgba(108,107,255,.85);}}
 
-/* ---------- letter-box word blanks ---------- */
 .letter-boxes{display:flex; gap:6px; justify-content:center; flex-wrap:wrap;}
 .letter-box{width:24px; height:32px; border-bottom:3px solid var(--brand); border-radius:4px; opacity:0; animation:fadeUp .3s ease both;}
 
-/* ---------- chat slide-in ---------- */
 .chat-msg.msgIn{animation:msgSlide .25s ease both;}
 @keyframes msgSlide{from{opacity:0; transform:translateX(10px);} to{opacity:1; transform:translateX(0);}}
 
-/* ---------- winner flourish ---------- */
 .final-row.r1 .rank{display:inline-flex; animation:bounce 1.1s ease-in-out infinite;}
 @keyframes bounce{0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);}}
 
-/* ==================== HOME SCREEN ==================== */
-.home-screen{position:relative; padding-bottom:60px; overflow:hidden;}
-.hm-bg{position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;}
-.hm-orb{position:absolute; border-radius:50%; will-change:transform;}
-.hm-orb.o1{
-  width:min(520px,82vw); aspect-ratio:1;
-  background:radial-gradient(circle, rgba(108,107,255,.4) 0%, transparent 68%);
-  top:-190px; right:-150px; animation:hmOrb1 22s ease-in-out infinite;
+/* ==================== HOME (MINIMAL EDITORIAL) ==================== */
+.home-root{
+  min-height:100vh; min-height:100dvh;
+  display:flex; flex-direction:column;
+  background:#0A0D1B;
+  position:relative; isolation:isolate;
 }
-.hm-orb.o2{
-  width:min(480px,78vw); aspect-ratio:1;
-  background:radial-gradient(circle, rgba(139,92,246,.32) 0%, transparent 68%);
-  bottom:-210px; left:-170px; animation:hmOrb2 28s ease-in-out infinite;
+.home-root::before{
+  content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
+  background:radial-gradient(700px 420px at 88% -6%, rgba(108,107,255,.13), transparent 68%);
 }
-@keyframes hmOrb1{0%,100%{transform:translate(0,0);}50%{transform:translate(-50px,55px);}}
-@keyframes hmOrb2{0%,100%{transform:translate(0,0);}50%{transform:translate(55px,-45px);}}
+.home-root > *{position:relative; z-index:1;}
 
-@keyframes hmRise{from{opacity:0; transform:translateY(18px);} to{opacity:1; transform:translateY(0);}}
-
-.hm-top{
-  position:relative; z-index:2; width:100%; max-width:1080px;
-  display:flex; align-items:center; justify-content:space-between; gap:12px;
-  padding:20px 4px 6px; animation:hmRise .5s ease both;
-}
-.hm-logo{display:flex; align-items:center; gap:10px; font-weight:900; font-size:18px; color:var(--text);}
-.hm-logo-mark{
-  width:36px; height:36px; border-radius:12px; display:grid; place-items:center; color:#fff;
-  background:linear-gradient(135deg,var(--brand),var(--brand2));
-  box-shadow:0 10px 22px -10px rgba(108,107,255,.9), inset 0 1px 0 rgba(255,255,255,.25);
-}
-.hm-logo-mark svg{width:20px; height:20px;}
-.hm-logo-accent{background:linear-gradient(135deg,#8B5CF6,#FF6FA0); -webkit-background-clip:text; background-clip:text; color:transparent;}
-.hm-online{
-  display:flex; align-items:center; gap:8px; font-size:12px; font-weight:800; color:var(--text-soft);
-  padding:7px 13px; border-radius:999px; background:rgba(46,212,122,.08); border:1px solid rgba(46,212,122,.22);
-}
-.hm-online-dot{width:7px; height:7px; border-radius:50%; background:var(--green); animation:hmBlink 2.4s ease-out infinite;}
-@keyframes hmBlink{0%{box-shadow:0 0 0 0 rgba(46,212,122,.6);}70%{box-shadow:0 0 0 8px rgba(46,212,122,0);}100%{box-shadow:0 0 0 0 rgba(46,212,122,0);}}
-
-.hm-main{position:relative; z-index:2; width:100%; max-width:440px; display:flex; flex-direction:column; align-items:center;}
-
-.hm-hero{position:relative; width:min(250px,64vw); display:grid; place-items:center; margin-top:8px;}
-.hm-halo{
-  position:absolute; width:90%; aspect-ratio:1; border-radius:50%;
-  background:radial-gradient(circle, rgba(108,107,255,.35) 0%, transparent 65%);
-  animation:hmHalo 6s ease-in-out infinite;
-}
-@keyframes hmHalo{0%,100%{transform:scale(1); opacity:.7;}50%{transform:scale(1.14); opacity:1;}}
-.hm-art{position:relative; width:100%; height:auto; filter:drop-shadow(0 20px 38px rgba(0,0,0,.5));}
-.hm-board{fill:rgba(255,255,255,.025); stroke:rgba(255,255,255,.09); stroke-width:1.5;}
-#hmSquiggle{stroke-dasharray:100; stroke-dashoffset:100; animation:hmDraw 5s cubic-bezier(.45,.05,.35,1) infinite;}
-@keyframes hmDraw{
-  0%{stroke-dashoffset:100; opacity:1;}
-  60%{stroke-dashoffset:0; opacity:1;}
-  88%{stroke-dashoffset:0; opacity:1;}
-  100%{stroke-dashoffset:0; opacity:0;}
-}
-.hm-pencil-g{animation:hmPencilFade 5s linear infinite;}
-@keyframes hmPencilFade{0%,88%{opacity:1;}100%{opacity:0;}}
-.hm-star{transform-box:fill-box; transform-origin:center; animation:hmTwinkle 3s ease-in-out infinite;}
-@keyframes hmTwinkle{0%,100%{transform:scale(1) rotate(0deg); opacity:.8;}50%{transform:scale(1.2) rotate(15deg); opacity:1;}}
-
-.hm-title{
-  margin:14px 0 0; text-align:center; line-height:1;
-  font-size:clamp(40px,10vw,58px); font-weight:900; letter-spacing:-1.5px;
-  background:linear-gradient(100deg,#FFFFFF 0%,#B7B5FF 25%,#6C6BFF 45%,#8B5CF6 62%,#FF8FB1 80%,#FFFFFF 100%);
-  background-size:250% auto;
-  -webkit-background-clip:text; background-clip:text; color:transparent;
-  filter:drop-shadow(0 6px 28px rgba(108,107,255,.3));
-  animation:hmShine 12s linear infinite, hmRise .6s cubic-bezier(.22,1,.36,1) both;
-}
-@keyframes hmShine{to{background-position:250% center;}}
-
-.hm-sub{
-  margin:12px 0 0; max-width:320px; text-align:center;
-  font-size:14.5px; font-weight:600; line-height:1.9; color:var(--text-soft);
-  animation:hmRise .6s .06s cubic-bezier(.22,1,.36,1) both;
-}
-
-.hm-card{
-  position:relative; width:100%; margin-top:24px; padding:20px; border-radius:24px;
-  background:linear-gradient(165deg, rgba(30,36,60,.92), rgba(15,19,35,.96));
-  border:1px solid rgba(255,255,255,.09);
-  box-shadow:0 40px 80px -46px rgba(0,0,0,.95), inset 0 1px 0 rgba(255,255,255,.07);
-  animation:hmRise .7s .12s cubic-bezier(.22,1,.36,1) both;
-}
-.hm-card::before{
-  content:""; position:absolute; inset:0; border-radius:inherit; padding:1px; pointer-events:none;
-  background:linear-gradient(150deg, rgba(108,107,255,.7), rgba(255,255,255,0) 35%, rgba(255,255,255,0) 65%, rgba(255,111,160,.5));
-  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite:xor; mask-composite:exclude;
-}
-
-.hm-modes{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px;}
-.hm-mode{
-  position:relative; padding:15px 10px; border-radius:16px; border:1.5px solid rgba(255,255,255,.09);
-  background:rgba(8,11,23,.55); color:var(--text-soft);
-  display:flex; flex-direction:column; align-items:center; gap:8px;
-  font-family:inherit; font-weight:800; font-size:13px; cursor:pointer;
-  transition:color .25s ease, border-color .25s ease, background .25s ease, transform .2s ease, box-shadow .25s ease;
-  -webkit-tap-highlight-color:transparent;
-}
-.hm-mode svg{width:22px; height:22px; transition:transform .3s cubic-bezier(.34,1.4,.64,1);}
-.hm-mode:hover{color:var(--text); border-color:rgba(108,107,255,.4);}
-.hm-mode:hover svg{transform:scale(1.08);}
-.hm-mode:active{transform:scale(.98);}
-.hm-mode.active{
-  color:#fff; border-color:transparent;
-  background:linear-gradient(135deg,rgba(108,107,255,.28),rgba(139,92,246,.16));
-  box-shadow:0 0 0 1.5px rgba(108,107,255,.6) inset, 0 14px 28px -16px rgba(108,107,255,.95);
-}
-.hm-mode.active[data-mode="join"]{
-  background:linear-gradient(135deg,rgba(255,111,160,.28),rgba(255,138,92,.16));
-  box-shadow:0 0 0 1.5px rgba(255,111,160,.6) inset, 0 14px 28px -16px rgba(255,111,160,.95);
-}
-
-.hm-field{margin-bottom:14px;}
-.hm-field label{
-  display:block; padding-right:4px; margin-bottom:8px;
-  font-size:12.5px; font-weight:800; color:var(--text-soft);
-}
-.hm-input-wrap{position:relative;}
-.hm-ico{
-  position:absolute; top:50%; right:14px; transform:translateY(-50%);
-  color:rgba(139,146,180,.75); pointer-events:none; display:inline-flex;
-  transition:color .25s;
-}
-.hm-ico svg{width:16px; height:16px;}
-.hm-input-wrap:focus-within .hm-ico{color:var(--brand);}
-.hm-input{
-  width:100%; padding:14px 16px; border-radius:14px;
-  border:1.5px solid rgba(255,255,255,.1); background:rgba(8,11,23,.72);
-  color:var(--text); font-family:inherit; font-weight:700; font-size:15.5px;
-  outline:none; text-align:right;
-  transition:border-color .25s, box-shadow .25s, background .25s;
-}
-.hm-input-wrap .hm-input{padding-right:44px;}
-.hm-input::placeholder{color:rgba(139,146,180,.65); font-weight:500;}
-.hm-input:hover{border-color:rgba(255,255,255,.18);}
-.hm-input:focus{
-  border-color:var(--brand); background:rgba(108,107,255,.07);
-  box-shadow:0 0 0 4px rgba(108,107,255,.14);
-}
-.hm-input--code{
-  text-align:center; letter-spacing:6px; text-indent:6px;
-  font-weight:900; font-size:19px;
-}
-.hm-input--code::placeholder{letter-spacing:.5px; text-indent:0; font-weight:600; font-size:14px;}
-
-.hm-cta-wrap{position:relative; margin-top:18px; border-radius:18px; --glow:108,107,255;}
-.hm-cta-wrap.join{--glow:255,111,160;}
-.hm-cta-wrap::after{
-  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
-  animation:hmRing 3s ease-out infinite;
-}
-@keyframes hmRing{
-  0%{box-shadow:0 0 0 0 rgba(var(--glow),.4);}
-  70%{box-shadow:0 0 0 16px rgba(var(--glow),0);}
-  100%{box-shadow:0 0 0 0 rgba(var(--glow),0);}
-}
-.hm-cta{
-  position:relative; width:100%; padding:16px 22px; border:none; border-radius:18px;
-  overflow:hidden; cursor:pointer;
-  display:flex; align-items:center; justify-content:center; gap:9px;
-  font-family:inherit; font-weight:900; font-size:16px; color:#fff;
-  background:linear-gradient(120deg,#6C6BFF 0%,#8B5CF6 50%,#A78BFA 100%);
-  background-size:180% auto;
-  box-shadow:0 18px 40px -18px rgba(108,107,255,1), inset 0 1px 0 rgba(255,255,255,.28);
-  transition:transform .2s cubic-bezier(.34,1.4,.64,1), box-shadow .3s, background-position .5s;
-}
-.hm-cta:hover{
-  transform:translateY(-2px); background-position:right center;
-  box-shadow:0 26px 52px -20px rgba(108,107,255,1), inset 0 1px 0 rgba(255,255,255,.35);
-}
-.hm-cta:active{transform:translateY(0) scale(.99);}
-.hm-cta svg{width:18px; height:18px;}
-.hm-cta.join-mode{
-  background:linear-gradient(120deg,#FF6FA0 0%,#FF7A59 50%,#FFB84D 100%);
-  background-size:180% auto;
-  box-shadow:0 18px 40px -18px rgba(255,111,160,1), inset 0 1px 0 rgba(255,255,255,.3);
-}
-.hm-cta.join-mode:hover{box-shadow:0 26px 52px -20px rgba(255,111,160,1), inset 0 1px 0 rgba(255,255,255,.4);}
-
-.hm-howto{
-  width:100%; margin-top:20px; border-radius:16px; overflow:hidden;
-  background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.07);
-  animation:hmRise .6s .22s cubic-bezier(.22,1,.36,1) both;
-}
-.hm-howto summary{
-  list-style:none; cursor:pointer; padding:14px 18px;
+.home-header{
   display:flex; align-items:center; justify-content:space-between;
-  font-weight:800; font-size:13.5px; color:var(--text-soft);
-  transition:color .25s, background .25s;
+  padding:20px 28px;
+  border-bottom:1px solid rgba(255,255,255,.06);
 }
-.hm-howto summary::-webkit-details-marker{display:none;}
-.hm-howto summary::after{
-  content:""; width:9px; height:9px;
-  border-right:2px solid currentColor; border-bottom:2px solid currentColor;
-  transform:rotate(45deg); margin-top:-4px;
-  transition:transform .3s;
+.home-brand{display:flex; align-items:center; gap:10px; font-weight:800; font-size:15px; color:var(--text);}
+.home-brand-mark{
+  width:30px; height:30px; border-radius:9px;
+  background:rgba(108,107,255,.12);
+  border:1px solid rgba(108,107,255,.28);
+  color:#A8A6FF;
+  display:grid; place-items:center;
 }
-.hm-howto[open] summary::after{transform:rotate(-135deg); margin-top:4px;}
-.hm-howto summary:hover{color:var(--text); background:rgba(255,255,255,.03);}
-.hm-howto-body{
-  padding:6px 18px 18px; font-size:13.5px; line-height:2; color:var(--text-soft);
-  border-top:1px solid rgba(255,255,255,.05);
+.home-status{
+  display:flex; align-items:center; gap:8px;
+  font-size:12px; font-weight:600; color:var(--text-soft);
 }
-.hm-howto-body b{color:var(--text);}
+.home-status .dot{
+  position:relative;
+  width:6px; height:6px; border-radius:50%; background:var(--green);
+}
+.home-status .dot::after{
+  content:""; position:absolute; inset:-4px;
+  border-radius:50%; border:1px solid var(--green);
+  animation:hmPing 2.2s ease-out infinite;
+}
+@keyframes hmPing{0%{transform:scale(.5); opacity:.55;} 100%{transform:scale(1.5); opacity:0;}}
 
-@media (max-width:420px){
-  .hm-card{padding:16px; border-radius:20px;}
-  .hm-cta{padding:15px 18px; font-size:15px;}
+.home-body{
+  flex:1;
+  display:grid; grid-template-columns:1.15fr .85fr;
+  min-height:0;
 }
+@media (max-width:900px){.home-body{grid-template-columns:1fr;}}
+
+/* intro side */
+.home-intro{
+  padding:56px 48px 56px 40px;
+  display:flex; flex-direction:column; justify-content:center;
+  gap:18px;
+  border-left:1px solid rgba(255,255,255,.06);
+  animation:hmRise .55s cubic-bezier(.22,1,.36,1) both;
+}
+@media (max-width:900px){
+  .home-intro{
+    padding:44px 24px 32px;
+    border-left:none;
+    border-bottom:1px solid rgba(255,255,255,.06);
+    gap:14px;
+  }
+}
+@keyframes hmRise{from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);}}
+
+.home-eyebrow{
+  display:flex; align-items:center; gap:10px;
+  font-size:11px; font-weight:700; letter-spacing:1.5px;
+  color:var(--text-soft);
+  text-transform:uppercase;
+}
+.home-eyebrow::before{
+  content:""; width:22px; height:1px; background:currentColor; opacity:.55;
+}
+
+.home-title{
+  margin:0;
+  font-size:clamp(54px,8.5vw,92px);
+  font-weight:900; letter-spacing:-2.5px; line-height:.95;
+  color:#fff;
+}
+.home-title .mark{
+  display:inline-block;
+  width:.2em; height:.2em; border-radius:50%;
+  background:var(--brand);
+  margin-inline-start:.12em;
+  transform:translateY(-.15em);
+}
+
+.home-doodle{
+  width:min(220px,60%);
+  height:auto;
+  color:rgba(168,166,255,.7);
+  margin-top:-4px;
+}
+.home-doodle path{
+  stroke-dasharray:340; stroke-dashoffset:340;
+  animation:hmDraw 1.6s .35s cubic-bezier(.4,0,.2,1) forwards;
+}
+@keyframes hmDraw{to{stroke-dashoffset:0;}}
+
+.home-desc{
+  margin:0; max-width:380px;
+  font-size:15.5px; font-weight:500; line-height:2;
+  color:var(--text-soft);
+}
+.home-desc b{color:var(--text); font-weight:700;}
+
+.home-facts{
+  display:flex; flex-wrap:wrap; gap:22px;
+  margin-top:8px; padding-top:22px;
+  border-top:1px solid rgba(255,255,255,.06);
+}
+.home-fact{
+  display:flex; align-items:center; gap:9px;
+  font-size:12.5px; font-weight:700; color:var(--text-soft);
+}
+.home-fact svg{color:var(--brand);}
+
+/* form side */
+.home-form-wrap{
+  padding:56px 48px;
+  display:flex; flex-direction:column; justify-content:center;
+}
+@media (max-width:900px){
+  .home-form-wrap{padding:32px 24px 56px;}
+}
+.home-form{
+  width:100%; max-width:380px; margin:0 auto;
+  animation:hmRise .55s .1s cubic-bezier(.22,1,.36,1) both;
+}
+
+.home-tabs{
+  display:flex; position:relative;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  margin-bottom:30px;
+}
+.home-tab{
+  flex:1; position:relative;
+  padding:14px 6px;
+  background:transparent; border:none;
+  color:var(--text-soft);
+  font-family:inherit; font-weight:700; font-size:14.5px;
+  cursor:pointer;
+  transition:color .2s;
+}
+.home-tab:hover{color:var(--text);}
+.home-tab.active{color:var(--text);}
+.home-tab.active::after{
+  content:""; position:absolute;
+  left:22%; right:22%; bottom:-1px;
+  height:2px; border-radius:2px;
+  background:var(--brand);
+  animation:hmTab .3s cubic-bezier(.4,0,.2,1);
+}
+@keyframes hmTab{from{transform:scaleX(.4); opacity:.4;} to{transform:scaleX(1); opacity:1;}}
+
+.home-field{margin-bottom:18px;}
+.home-field label{
+  display:block; margin-bottom:9px;
+  font-size:12px; font-weight:700; letter-spacing:.2px;
+  color:var(--text-soft);
+}
+.home-input{
+  width:100%; padding:14px 16px;
+  background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:12px;
+  color:var(--text);
+  font-family:inherit; font-weight:600; font-size:15px;
+  outline:none; text-align:right;
+  transition:border-color .2s, background .2s;
+}
+.home-input:hover{border-color:rgba(255,255,255,.16);}
+.home-input:focus{
+  border-color:var(--brand);
+  background:rgba(108,107,255,.06);
+}
+.home-input::placeholder{color:rgba(139,146,180,.55); font-weight:500;}
+.home-input--code{
+  text-align:center; letter-spacing:8px; text-indent:8px;
+  font-weight:800; font-size:18px;
+}
+.home-input--code::placeholder{letter-spacing:.5px; text-indent:0; font-weight:600; font-size:13.5px;}
+
+.home-cta{
+  width:100%; padding:15px 20px; margin-top:6px;
+  background:var(--brand); border:none; border-radius:12px;
+  color:#fff;
+  font-family:inherit; font-weight:800; font-size:15.5px;
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  transition:background .2s, transform .12s;
+}
+.home-cta:hover{background:#7B7AFF;}
+.home-cta:active{transform:scale(.985);}
+.home-cta svg{transition:transform .25s;}
+.home-cta:hover svg{transform:translateX(-3px);}
+
+.home-help{
+  margin-top:26px; padding-top:20px;
+  border-top:1px solid rgba(255,255,255,.06);
+}
+.home-help summary{
+  list-style:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:space-between;
+  font-size:12.5px; font-weight:700; color:var(--text-soft);
+  transition:color .2s;
+}
+.home-help summary:hover{color:var(--text);}
+.home-help summary::-webkit-details-marker{display:none;}
+.home-help summary::after{
+  content:""; width:7px; height:7px;
+  border-right:1.5px solid currentColor;
+  border-bottom:1.5px solid currentColor;
+  transform:rotate(45deg); margin-top:-4px;
+  transition:transform .25s;
+}
+.home-help[open] summary::after{transform:rotate(-135deg); margin-top:4px;}
+.home-help-body{
+  padding-top:16px;
+  font-size:12.5px; line-height:2.05;
+  color:var(--text-soft);
+}
+.home-help-body b{color:var(--text); font-weight:700;}
 </style>
 </head>
 <body>
@@ -517,6 +523,7 @@ const ICONS = {
   plus:   '<path d="M12 5v14M5 12h14"/>',
   link:   '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
   user:   '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  users:  '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   key:    '<circle cx="7.5" cy="15.5" r="3.5"/><path d="M10.5 12.5 19 4M15.5 7.5l2 2M17.5 5.5l2 2"/>',
   crown:  '<path d="M4 8l4 4 4-7 4 7 4-4-2 10H6z"/>',
   check:  '<polyline points="20 6 9 17 4 12"/>',
@@ -525,7 +532,9 @@ const ICONS = {
   undo:   '<path d="M9 14 4 9l5-5"/><path d="M4 9h11a6 6 0 0 1 0 12h-3"/>',
   trash:  '<path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/>',
   trophy: '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/>',
-  copy:   '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'
+  copy:   '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  chevronLeft: '<path d="M15 6l-6 6 6 6"/>',
+  layers: '<path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>'
 };
 function icon(name, size){
   size = size || 18;
@@ -558,12 +567,6 @@ function colorFor(idx){ return PALETTE[idx % PALETTE.length]; }
 
 function topBar(mode){
   const logo = '<div class="topbar-logo"><span class="pencil">'+icon('pencil', 19)+'</span>خط<span class="g">خطی</span></div>';
-  if(mode === 'home'){
-    return '<div class="topbar">'+logo+
-      '<div class="topbar-nav"><a class="active">خانه</a><a>راهنما</a><a>اتاق‌ها</a></div>'+
-      '<span class="btn btn-sm btn-ghost" style="visibility:hidden;">ورود</span>'+
-    '</div>';
-  }
   if(mode === 'room'){
     return '<div class="topbar">'+logo+
       '<div class="topbar-room">اتاق <span dir="ltr">#'+escapeHtml(S.code||'')+'</span><span class="pub">عمومی</span></div>'+
@@ -694,135 +697,90 @@ function onServerMessage(msg){
   }
 }
 
-/* ============================= HOME ============================= */
+/* ============================= HOME (minimal editorial) ============================= */
 let homeMode = 'create';
 function mountHome(){
   const params = new URLSearchParams(location.search);
   const prefillCode = (params.get('room')||'').toUpperCase().slice(0,5);
   homeMode = prefillCode ? 'join' : 'create';
 
-  app.innerHTML = `
-  <div class="screen home-screen">
-    <div class="hm-bg" aria-hidden="true">
-      <span class="hm-orb o1"></span>
-      <span class="hm-orb o2"></span>
-    </div>
+  const ctaIcon = icon('chevronLeft', 16);
 
-    <header class="hm-top">
-      <div class="hm-logo">
-        <span class="hm-logo-mark">${icon('pencil', 20)}</span>
-        <span>خط<span class="hm-logo-accent">خطی</span></span>
+  app.innerHTML = `
+  <div class="home-root">
+    <header class="home-header">
+      <div class="home-brand">
+        <span class="home-brand-mark">${icon('pencil', 16)}</span>
+        <span>خط‌خطی</span>
       </div>
-      <div class="hm-online"><span class="hm-online-dot"></span> آنلاین</div>
+      <div class="home-status"><span class="dot"></span> آنلاین</div>
     </header>
 
-    <main class="hm-main">
-      <div class="hm-hero">
-        <div class="hm-halo"></div>
-        <svg class="hm-art" viewBox="0 0 260 210" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="hmGA" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stop-color="#8B8AFF"/>
-              <stop offset="55%" stop-color="#6C6BFF"/>
-              <stop offset="100%" stop-color="#8B5CF6"/>
-            </linearGradient>
-            <linearGradient id="hmGB" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stop-color="#FFB84D"/>
-              <stop offset="100%" stop-color="#FF6FA0"/>
-            </linearGradient>
-            <linearGradient id="hmGC" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#FFE7C2"/>
-              <stop offset="100%" stop-color="#FFC857"/>
-            </linearGradient>
-          </defs>
+    <div class="home-body">
+      <section class="home-intro">
+        <div class="home-eyebrow">نسخه ۱.۰</div>
 
-          <rect class="hm-board" x="14" y="14" width="232" height="182" rx="28"/>
+        <h1 class="home-title">خط‌خطی<span class="mark"></span></h1>
 
-          <path id="hmSquiggle" pathLength="100"
-                d="M52 152 C 74 82, 100 176, 128 116 S 184 66, 210 122"
-                stroke="url(#hmGA)" stroke-width="9" stroke-linecap="round" fill="none"/>
-
-          <path class="hm-star" d="M204 36 l4.5 11 11 4.5 -11 4.5 -4.5 11 -4.5 -11 -11 -4.5 11 -4.5 z" fill="url(#hmGB)"/>
-
-          <g class="hm-pencil-g">
-            <animateMotion dur="5s" repeatCount="indefinite" rotate="auto"
-                           calcMode="linear" keyPoints="0;1;1" keyTimes="0;0.60;1">
-              <mpath href="#hmSquiggle"/>
-            </animateMotion>
-            <g>
-              <path d="M0 0 L-13 -6 L-13 6 Z" fill="url(#hmGC)"/>
-              <rect x="-44" y="-6.5" width="31" height="13" rx="3.5" fill="url(#hmGB)"/>
-              <rect x="-51" y="-6.5" width="7" height="13" rx="3.5" fill="#FF6FA0"/>
-            </g>
-          </g>
+        <svg class="home-doodle" viewBox="0 0 220 24" fill="none" aria-hidden="true">
+          <path d="M3 14 Q 56 2, 110 14 T 217 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
         </svg>
-      </div>
 
-      <h1 class="hm-title">خط‌خطی</h1>
-      <p class="hm-sub">یکی می‌کشد، بقیه حدس می‌زنند</p>
+        <p class="home-desc">
+          بازی نقاشی و حدس گروهی. یکی می‌کشد، بقیه حدس می‌زنند و <b>امتیاز</b> می‌گیرند.
+        </p>
 
-      <div class="hm-card">
-        <div class="hm-modes" id="hmModes">
-          <button type="button" class="hm-mode" data-mode="create">
-            ${icon('plus', 22)}
-            <span>ساخت اتاق</span>
-          </button>
-          <button type="button" class="hm-mode" data-mode="join">
-            ${icon('link', 22)}
-            <span>پیوستن به اتاق</span>
-          </button>
+        <div class="home-facts">
+          <div class="home-fact">${icon('users', 15)}<span>۲ تا ۸ بازیکن</span></div>
+          <div class="home-fact">${icon('layers', 15)}<span>حداکثر ۳ راند</span></div>
         </div>
+      </section>
 
-        <div class="hm-field">
-          <label>اسمت چیه؟</label>
-          <div class="hm-input-wrap">
-            <span class="hm-ico">${icon('user', 16)}</span>
-            <input class="hm-input" id="nameInput" maxlength="16" placeholder="مثلاً نیلوفر" autocomplete="off">
+      <section class="home-form-wrap">
+        <div class="home-form">
+          <div class="home-tabs" role="tablist">
+            <button type="button" class="home-tab" data-mode="create">ساخت اتاق</button>
+            <button type="button" class="home-tab" data-mode="join">پیوستن</button>
           </div>
-        </div>
 
-        <div class="hm-field" id="joinCodeField">
-          <label>کد اتاق</label>
-          <div class="hm-input-wrap">
-            <span class="hm-ico">${icon('key', 16)}</span>
-            <input class="hm-input hm-input--code" id="codeInput" maxlength="5" placeholder="کد اتاق"
+          <div class="home-field">
+            <label>نام شما</label>
+            <input class="home-input" id="nameInput" maxlength="16" placeholder="مثلاً نیلوفر" autocomplete="off">
+          </div>
+
+          <div class="home-field" id="joinCodeField">
+            <label>کد اتاق</label>
+            <input class="home-input home-input--code" id="codeInput" maxlength="5" placeholder="کد اتاق"
                    value="${escapeHtml(prefillCode)}">
           </div>
-        </div>
 
-        <div class="hm-cta-wrap" id="ctaWrap">
-          <button class="hm-cta" id="primaryActionBtn"></button>
-        </div>
-      </div>
+          <button class="home-cta" id="primaryActionBtn"></button>
 
-      <details class="hm-howto">
-        <summary>راهنمای بازی</summary>
-        <div class="hm-howto-body">
-          ۱. یک نفر <b>نقاش</b> می‌شود و یک کلمه از بین ۳ گزینه انتخاب می‌کند.<br>
-          ۲. نقاش کلمه را روی تخته می‌کشد، بقیه حدس می‌زنند.<br>
-          ۳. هرکس زودتر درست حدس بزند، <b>امتیاز بیشتری</b> می‌گیرد.<br>
-          ۴. وقتی همه یک‌بار نقاش شدند، یک <b>راند</b> تمام می‌شود (حداکثر ۳ راند).<br>
-          ۵. میزبان می‌تواند زمان هر نوبت و تعداد راندها را در لابی تنظیم کند.
+          <details class="home-help">
+            <summary>راهنمای بازی</summary>
+            <div class="home-help-body">
+              ۱. یک نفر <b>نقاش</b> می‌شود و یک کلمه از بین ۳ گزینه انتخاب می‌کند.<br>
+              ۲. نقاش کلمه را روی تخته می‌کشد، بقیه حدس می‌زنند.<br>
+              ۳. هرکس زودتر درست حدس بزند، <b>امتیاز بیشتری</b> می‌گیرد.<br>
+              ۴. وقتی همه یک‌بار نقاش شدند، یک <b>راند</b> تمام می‌شود (حداکثر ۳ راند).<br>
+              ۵. میزبان می‌تواند زمان هر نوبت و تعداد راندها را در لابی تنظیم کند.
+            </div>
+          </details>
         </div>
-      </details>
-    </main>
+      </section>
+    </div>
   </div>`;
 
   function applyHomeMode(){
-    $$('.hm-mode').forEach(b=> b.classList.toggle('active', b.dataset.mode===homeMode));
+    $$('.home-tab').forEach(b=> b.classList.toggle('active', b.dataset.mode===homeMode));
     $('#joinCodeField').style.display = homeMode==='join' ? '' : 'none';
-
-    const wrap = $('#ctaWrap');
-    wrap.classList.toggle('join', homeMode==='join');
-
     const btn = $('#primaryActionBtn');
-    btn.classList.toggle('join-mode', homeMode==='join');
     btn.innerHTML = homeMode==='join'
-      ? icon('link', 18) + '<span>پیوستن به اتاق</span>'
-      : icon('plus', 18) + '<span>ساخت اتاق جدید</span>';
+      ? '<span>پیوستن به اتاق</span>' + ctaIcon
+      : '<span>ساخت اتاق جدید</span>' + ctaIcon;
   }
 
-  $$('.hm-mode').forEach(b=> b.onclick = ()=>{ homeMode = b.dataset.mode; applyHomeMode(); });
+  $$('.home-tab').forEach(b=> b.onclick = ()=>{ homeMode = b.dataset.mode; applyHomeMode(); });
   applyHomeMode();
 
   $('#primaryActionBtn').onclick = ()=>{ homeMode==='join' ? onJoinRoom() : onCreateRoom(); };
