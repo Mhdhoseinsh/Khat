@@ -8,21 +8,22 @@
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#090B14;
-  --surface:#141830;
-  --surface-2:#1C2140;
+  --bg:#0A0D1B;
+  --surface:#12162A;
+  --surface-2:#1A2036;
   --border: rgba(255,255,255,.08);
   --border-strong: rgba(255,255,255,.16);
   --text:#EEF0FB;
   --text-soft:#8B92B4;
-  --brand:#22E6C0;
-  --brand2:#8B7CFF;
+  --brand:#6C6BFF;
+  --brand2:#8B5CF6;
   --amber:#FFB84D;
   --pink:#FF6FA0;
+  --green:#2ED47A;
   /* kept names below: referenced directly (var(--teal)/var(--coral)) inside inline SVG markup */
-  --teal:#22E6C0;
+  --teal:#6C6BFF;
   --coral:#FF5470;
-  --radius: 20px;
+  --radius: 18px;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;}
@@ -30,9 +31,9 @@ body{
   margin:0;
   font-family:'Vazirmatn',Tahoma,'Segoe UI',Arial,sans-serif;
   background:
-    radial-gradient(900px 500px at 10% -5%, rgba(34,230,192,.14), transparent 60%),
-    radial-gradient(800px 500px at 105% 8%, rgba(255,111,160,.12), transparent 55%),
-    radial-gradient(700px 500px at 50% 115%, rgba(139,124,255,.10), transparent 55%),
+    radial-gradient(900px 500px at 10% -5%, rgba(108,107,255,.16), transparent 60%),
+    radial-gradient(800px 500px at 105% 8%, rgba(139,92,246,.14), transparent 55%),
+    radial-gradient(700px 500px at 50% 115%, rgba(108,107,255,.08), transparent 55%),
     var(--bg);
   background-attachment:fixed;
   color:var(--text);
@@ -44,8 +45,25 @@ body{
 }
 button{font-family:inherit;}
 input,button,select,textarea{font-size:16px;}
-.screen{min-height:100vh; padding:20px 16px 40px; display:flex; flex-direction:column; align-items:center;}
+.screen{min-height:100vh; padding:0 16px 40px; display:flex; flex-direction:column; align-items:center;}
 .wrap{width:100%; max-width:960px;}
+
+/* ---------- topbar ---------- */
+.topbar{
+  width:100%; max-width:1180px; margin:0 auto 26px; padding:16px 4px;
+  display:flex; align-items:center; justify-content:space-between; gap:14px;
+}
+.topbar-logo{display:flex; align-items:center; gap:8px; font-weight:900; font-size:19px; color:var(--text); flex-shrink:0;}
+.topbar-logo .pencil{font-size:19px;}
+.topbar-logo .g{background:linear-gradient(135deg,var(--brand),var(--brand2)); -webkit-background-clip:text; background-clip:text; color:transparent;}
+.topbar-nav{display:flex; align-items:center; gap:26px; font-weight:700; font-size:14.5px; color:var(--text-soft);}
+.topbar-nav a{color:inherit; cursor:default;}
+.topbar-nav a.active{color:var(--text);}
+.topbar-room{display:flex; align-items:center; gap:10px; font-weight:800; font-size:15px;}
+.topbar-room .pub{font-size:11px; font-weight:700; color:var(--green); background:rgba(46,212,122,.14); border:1px solid rgba(46,212,122,.3); padding:3px 9px; border-radius:20px; display:inline-flex; align-items:center; gap:4px;}
+.topbar-room .pub::before{content:"●"; font-size:8px;}
+.topbar-user{display:flex; align-items:center; gap:8px; font-weight:700; font-size:14px; flex-shrink:0;}
+@media (max-width:640px){.topbar-nav{display:none;}}
 
 /* ---------- buttons & inputs ---------- */
 .btn{
@@ -127,9 +145,9 @@ input,button,select,textarea{font-size:16px;}
 
 /* ---------- lobby ---------- */
 .room-code-box{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:4px;}
-.room-code{font-size:34px; font-weight:900; letter-spacing:6px; color:#2B1B02;
-  background:linear-gradient(135deg,var(--amber),#FFD98A);
-  border:none; border-radius:12px; padding:6px 18px; box-shadow:0 14px 32px -10px rgba(255,184,77,.5);}
+.room-code{font-size:30px; font-weight:900; letter-spacing:6px; color:var(--text);
+  background:var(--surface-2); border:1.5px solid var(--border-strong);
+  border-radius:12px; padding:5px 18px;}
 .lobby-grid{display:grid; grid-template-columns:1.15fr .85fr; gap:18px; align-items:start; margin-top:20px;}
 @media (max-width:720px){.lobby-grid{grid-template-columns:1fr;}}
 .section-title{font-weight:800; font-size:15px; margin:0 0 12px; color:var(--brand);}
@@ -147,18 +165,26 @@ input,button,select,textarea{font-size:16px;}
 
 /* ---------- game screen ---------- */
 .game-wrap{width:100%; max-width:1020px;}
-.turn-banner{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap;}
-.turn-info{font-weight:700; font-size:14.5px; color:var(--text-soft);}
+.turn-info{font-weight:700; font-size:14px; color:var(--text-soft); text-align:center;}
 .turn-info b{color:var(--brand);}
-.timer-wrap{display:flex; align-items:center; gap:8px; flex-shrink:0;}
-.timer-ring{width:52px;height:52px; position:relative;}
-.timer-ring svg{transform:rotate(-90deg);}
-.timer-ring .txt{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:16px; color:var(--text);}
-.timer-warn .txt{color:var(--coral);}
-.timer-warn svg circle.fg{stroke:var(--coral) !important;}
+.timer-pill{
+  display:flex; align-items:center; gap:8px; justify-content:center; margin:0 auto 14px; width:fit-content;
+  background:linear-gradient(135deg,var(--brand),var(--brand2)); color:#fff; font-weight:900; font-size:19px;
+  padding:9px 22px; border-radius:999px; box-shadow:0 14px 30px -10px rgba(108,107,255,.55); letter-spacing:.5px;
+}
+.timer-pill .ic{font-size:16px;}
+.timer-pill.timer-warn{background:linear-gradient(135deg,var(--coral),#FF8A5C); box-shadow:0 14px 30px -10px rgba(255,84,112,.55);}
 
-.game-grid{display:grid; grid-template-columns:1fr 250px; gap:16px; align-items:start;}
-@media (max-width:800px){.game-grid{grid-template-columns:1fr;}}
+.round-card{text-align:center;}
+.round-card .round-title{font-weight:800; font-size:14px; color:var(--text-soft); margin-bottom:10px;}
+.round-card .round-title b{color:var(--text); font-size:15px;}
+.round-dots{display:flex; gap:6px; justify-content:center; margin-bottom:10px;}
+.round-dots span{width:7px;height:7px;border-radius:50%; background:var(--border-strong);}
+.round-dots span.done{background:linear-gradient(135deg,var(--brand),var(--brand2));}
+
+.game-grid{display:grid; grid-template-columns:200px 1fr 250px; gap:16px; align-items:start;}
+@media (max-width:960px){.game-grid{grid-template-columns:1fr 250px;} .left-col{grid-column:1 / -1; order:3;} }
+@media (max-width:640px){.game-grid{grid-template-columns:1fr;} .left-col{order:3;}}
 
 .board-card{padding:14px; position:relative;}
 .word-display{text-align:center; font-weight:900; margin-bottom:10px; min-height:30px;}
@@ -173,7 +199,7 @@ canvas#board{
 }
 .canvas-disabled{cursor:default !important;}
 
-.toolbar{display:flex; align-items:center; gap:10px; margin-top:12px; flex-wrap:wrap; justify-content:center;}
+.toolbar{display:flex; align-items:center; gap:12px; margin-top:12px; flex-wrap:wrap; justify-content:center; background:var(--surface-2); border:1px solid var(--border); border-radius:999px; padding:8px 16px;}
 .swatches{display:flex; gap:6px; flex-wrap:wrap; justify-content:center;}
 .swatch{width:26px;height:26px;border-radius:50%; border:2px solid var(--border-strong); cursor:pointer; flex-shrink:0;}
 .swatch.sel{outline:3px solid var(--brand); outline-offset:2px;}
@@ -198,7 +224,8 @@ canvas#board{
 .chat-list{flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px; padding-left:2px;}
 .chat-msg{font-size:13.5px; padding:6px 10px; border-radius:10px; background:var(--surface-2); color:var(--text); line-height:1.6;}
 .chat-msg b{color:var(--brand2);}
-.chat-msg.correct{background:rgba(34,230,192,.14); color:var(--brand); font-weight:800; text-align:center; border:1px solid rgba(34,230,192,.3);}
+.chat-msg.correct{background:rgba(46,212,122,.16); color:var(--green); font-weight:800; text-align:right; border:1px solid rgba(46,212,122,.35); display:flex; align-items:center; justify-content:space-between;}
+.chat-msg.correct::after{content:"✓"; background:var(--green); color:#04140F; width:18px; height:18px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:900; flex-shrink:0;}
 .chat-msg.system{background:transparent; color:var(--text-soft); text-align:center; font-weight:600;}
 .chat-form{display:flex; gap:8px; margin-top:10px;}
 .chat-form input{flex:1;}
@@ -309,6 +336,23 @@ function faNum(n){
 }
 const PALETTE = ['#FF6A5B','#2FB6A6','#7C83FD','#FFC857','#FF8FB1','#59C36A','#5AA9E6','#C77DFF'];
 function colorFor(idx){ return PALETTE[idx % PALETTE.length]; }
+
+function topBar(mode){
+  const logo = `<div class="topbar-logo"><span class="pencil">✏️</span>خط<span class="g">خطی</span></div>`;
+  if(mode === 'home'){
+    return `<div class="topbar">${logo}
+      <div class="topbar-nav"><a class="active">خانه</a><a>راهنما</a><a>اتاق‌ها</a></div>
+      <span class="btn btn-sm btn-ghost" style="visibility:hidden;">ورود</span>
+    </div>`;
+  }
+  if(mode === 'room'){
+    return `<div class="topbar">${logo}
+      <div class="topbar-room">اتاق <span dir="ltr">#${escapeHtml(S.code||'')}</span><span class="pub">عمومی</span></div>
+      <div class="topbar-user"><div class="avatar" style="width:30px;height:30px;font-size:13px;background:${colorFor((S.players[S.me.id]||{}).colorIdx||0)}">${escapeHtml((S.me.name||'?').slice(0,1))}</div><span>${escapeHtml(S.me.name||'')}</span></div>
+    </div>`;
+  }
+  return `<div class="topbar">${logo}<div></div><div></div></div>`;
+}
 
 /* ============================= WEBSOCKET ============================= */
 let ws = null;
@@ -441,6 +485,7 @@ function mountHome(){
 
   app.innerHTML = `
   <div class="screen">
+    ${topBar('home')}
     <div class="wrap" style="max-width:440px;">
       <div class="hero">
         <span class="floaty f1">✨</span>
@@ -507,8 +552,8 @@ function horseSvg(){
   return `<svg viewBox="0 0 280 180" fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="horseGrad" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#22E6C0"/>
-        <stop offset="100%" stop-color="#8B7CFF"/>
+        <stop offset="0%" stop-color="#6C6BFF"/>
+        <stop offset="100%" stop-color="#8B5CF6"/>
       </linearGradient>
     </defs>
     <path id="horsePath" d="M40 140 Q35 100 55 90 Q45 70 60 55 Q65 35 90 35 Q100 20 120 28 Q140 15 155 35 Q175 32 180 55 Q200 60 198 80 Q215 85 210 100 L215 145 L198 145 L195 115 Q185 130 165 130 L165 148 L150 148 L150 132 Q120 135 100 128 L95 148 L80 148 L82 122 Q55 118 48 140 Z"
@@ -538,10 +583,10 @@ function onJoinRoom(){
 function mountLobby(){
   app.innerHTML = `
   <div class="screen">
+    ${topBar('room')}
     <div class="wrap" style="max-width:760px;">
-      <div class="brand"><h1 style="font-size:20px;">خط‌خطی</h1></div>
       <div class="room-code-box">
-        <span style="font-weight:700; color:var(--ink-soft); font-size:14px;">کد اتاق:</span>
+        <span style="font-weight:700; color:var(--text-soft); font-size:14px;">کد اتاق:</span>
         <span class="room-code" id="roomCodeTxt">${S.code}</span>
         <button class="btn btn-sm btn-ghost" id="copyLinkBtn" title="کپی لینک دعوت">کپی لینک</button>
       </div>
@@ -587,7 +632,7 @@ function renderLobbyDynamic(){
     <div class="player-chip fadeUp" style="animation-delay:${i*60}ms">
       <div class="avatar" style="background:${colorFor(p.colorIdx)}">${escapeHtml((p.name||'?').slice(0,1))}</div>
       <span class="nm">${escapeHtml(p.name)}</span>
-      ${p.id===S.meta.hostId ? '<span class="host-badge">میزبان</span>' : ''}
+      ${p.id===S.meta.hostId ? '<span class="host-badge">👑 میزبان</span>' : ''}
     </div>`).join('') || '<div class="empty-note">در انتظار بازیکن‌ها...</div>';
 
   const roundsChips = $('#roundsChips');
@@ -614,45 +659,43 @@ function renderLobbyDynamic(){
 function mountGame(){
   app.innerHTML = `
   <div class="screen">
+    ${topBar('room')}
     <div class="game-wrap">
-      <div class="turn-banner">
-        <div class="turn-info" id="turnInfo">—</div>
-        <div class="timer-wrap">
-          <div class="timer-ring" id="timerRing">
-            <svg width="52" height="52" viewBox="0 0 52 52">
-              <circle cx="26" cy="26" r="22" stroke="#E9E2D0" stroke-width="5" fill="none"/>
-              <circle class="fg" cx="26" cy="26" r="22" stroke="var(--teal)" stroke-width="5" fill="none"
-                stroke-dasharray="138.2" stroke-dashoffset="0" stroke-linecap="round" id="timerCircle"/>
-            </svg>
-            <div class="txt" id="timerTxt">--</div>
+      <div class="game-grid">
+        <div class="side-col left-col">
+          <div class="card round-card">
+            <div class="round-title">دور <b id="roundNow">۱</b>/<span id="roundTotal">۳</span></div>
+            <div class="round-dots" id="roundDots"></div>
+            <div class="turn-info" id="turnInfo">—</div>
+          </div>
+          <div class="card scoreboard" id="scoreCard">
+            <div class="section-title">امتیازها</div>
+            <div id="scoreList"></div>
           </div>
         </div>
-      </div>
 
-      <div class="game-grid">
-        <div class="board-card card">
-          <div class="word-display" id="wordDisplay"></div>
-          <div style="position:relative;">
-            <canvas id="board" width="800" height="600"></canvas>
-            <div class="choose-overlay" id="chooseOverlay" style="display:none;"></div>
-            <div class="turnend-overlay" id="turnendOverlay" style="display:none;"></div>
-          </div>
-          <div class="toolbar" id="toolbar" style="display:none;">
-            <div class="swatches" id="swatches"></div>
-            <div class="sizes" id="sizes"></div>
-            <div class="tool-actions">
-              <button class="btn btn-sm btn-icon" id="eraserBtn" title="پاک‌کن">🧽</button>
-              <button class="btn btn-sm btn-icon" id="undoBtn" title="واگرد">↩</button>
-              <button class="btn btn-sm btn-icon" id="clearBtn" title="پاک کردن همه">🗑</button>
+        <div class="side-col">
+          <div class="timer-pill" id="timerPill"><span class="ic">⏱</span><span id="timerTxt">--</span></div>
+          <div class="board-card card">
+            <div class="word-display" id="wordDisplay"></div>
+            <div style="position:relative;">
+              <canvas id="board" width="800" height="600"></canvas>
+              <div class="choose-overlay" id="chooseOverlay" style="display:none;"></div>
+              <div class="turnend-overlay" id="turnendOverlay" style="display:none;"></div>
+            </div>
+            <div class="toolbar" id="toolbar" style="display:none;">
+              <div class="swatches" id="swatches"></div>
+              <div class="sizes" id="sizes"></div>
+              <div class="tool-actions">
+                <button class="btn btn-sm btn-icon" id="eraserBtn" title="پاک‌کن">🧽</button>
+                <button class="btn btn-sm btn-icon" id="undoBtn" title="واگرد">↩</button>
+                <button class="btn btn-sm btn-icon" id="clearBtn" title="پاک کردن همه">🗑</button>
+              </div>
             </div>
           </div>
         </div>
 
         <div class="side-col">
-          <div class="card scoreboard" id="scoreCard">
-            <div class="section-title">امتیازها</div>
-            <div id="scoreList"></div>
-          </div>
           <div class="card chat-card">
             <div class="section-title">حدس‌ها</div>
             <div class="chat-list" id="chatList"></div>
@@ -680,21 +723,17 @@ function startTimerLoop(){
 }
 function updateTimerDisplay(){
   if(S.screen !== 'game' || !S.meta) return;
-  const ring = $('#timerCircle'); const ringWrap = $('#timerRing'); const timerTxt = $('#timerTxt');
-  if(!ring) return;
+  const pill = $('#timerPill'); const timerTxt = $('#timerTxt');
+  if(!pill) return;
   if(S.meta.status === 'drawing'){
-    const total = S.meta.turnSeconds*1000;
     const left = Math.max(0, S.meta.turnEndAt - Date.now());
-    const ratio = clamp(left/total, 0, 1);
-    const C = 138.2;
-    ring.setAttribute('stroke-dashoffset', (C*(1-ratio)).toFixed(1));
     const secs = Math.ceil(left/1000);
-    timerTxt.textContent = faNum(secs);
-    ringWrap.classList.toggle('timer-warn', secs<=10);
+    const mm = Math.floor(secs/60), ss = secs%60;
+    timerTxt.textContent = faNum(mm)+':'+faNum(ss<10?'0'+ss:ss);
+    pill.classList.toggle('timer-warn', secs<=10);
   } else {
-    ring.setAttribute('stroke-dashoffset','0');
     timerTxt.textContent = '⏳';
-    ringWrap.classList.remove('timer-warn');
+    pill.classList.remove('timer-warn');
   }
 }
 
@@ -705,7 +744,10 @@ function updateGameDynamic(prevStatus, prevSeq){
   const drawer = players[meta.currentDrawerId];
   const iAmDrawer = meta.currentDrawerId === S.me.id;
 
-  $('#turnInfo').innerHTML = `راند <b>${faNum(meta.currentRound)}</b> از ${faNum(meta.rounds)} · نوبت رسم: <b>${escapeHtml(drawer?drawer.name:'')}</b>`;
+  $('#roundNow').textContent = faNum(meta.currentRound);
+  $('#roundTotal').textContent = faNum(meta.rounds);
+  $('#roundDots').innerHTML = Array.from({length: meta.rounds||1}).map((_,i)=> `<span class="${i < meta.currentRound ? 'done':''}"></span>`).join('');
+  $('#turnInfo').innerHTML = `نوبت رسم: <b>${escapeHtml(drawer?drawer.name:'')}</b>`;
   updateTimerDisplay();
 
   if(meta.turnSeq !== S.lastTurnSeq){
@@ -937,6 +979,7 @@ function setupToolbar(){
 function mountFinal(){
   app.innerHTML = `
   <div class="screen">
+    ${topBar('plain')}
     <div class="wrap" style="max-width:480px;">
       <div class="brand"><h1 style="font-size:24px;">🏆 نتیجه نهایی</h1></div>
       <div class="final-list" id="finalList"></div>
