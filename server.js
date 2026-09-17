@@ -181,6 +181,7 @@ function publicMeta(room, forId){
     guessedIds: Array.from(room.guessedIds||[]),
     turnScores: room.turnScores || {},
     myAnswer: (room.answers && room.answers[forId]) ? room.answers[forId] : null,
+    wrongIds: Object.keys(room.answers||{}).filter(id => room.answers[id] && !room.answers[id].correct),
     lastWordReveal: room.status==='turnEnd' ? room.currentWord : null
   };
 }
