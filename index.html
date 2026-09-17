@@ -1250,26 +1250,70 @@ function headerHTML(withRoom){
 /* ============================= WEBSOCKET ============================= */
 let ws = null;
 let wsReady = false;
+let reconnectAttempt = 0;
+let reconnectTimer = null;
+let intentionalClose = false;
+const pendingMsgs = [];
+
+function saveSession(code, playerId){
+  try{ sessionStorage.setItem('khatkhati_session', JSON.stringify({code, playerId})); }catch(e){}
+}
+function loadSession(){
+  try{ return JSON.parse(sessionStorage.getItem('khatkhati_session')||'null'); }catch(e){ return null; }
+}
+function clearSession(){
+  try{ sessionStorage.removeItem('khatkhati_session'); }catch(e){}
+}
 
 function connectWs(){
+  clearTimeout(reconnectTimer);
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   ws = new WebSocket(proto + '//' + location.host);
-  ws.addEventListener('open', ()=>{ wsReady = true; $('#connBanner').classList.remove('show'); });
+  ws.addEventListener('open', ()=>{
+    wsReady = true;
+    reconnectAttempt = 0;
+    $('#connBanner')?.classList.remove('show');
+    const session = loadSession();
+    if(session && session.code && session.playerId){
+      ws.send(JSON.stringify({type:'rejoin', code:session.code, playerId:session.playerId}));
+    }
+    while(pendingMsgs.length){
+      const m = pendingMsgs.shift();
+      try{ ws.send(JSON.stringify(m)); }catch(e){}
+    }
+  });
   ws.addEventListener('message', (ev)=>{
     let msg; try{ msg = JSON.parse(ev.data); }catch(e){ return; }
     onServerMessage(msg);
   });
   ws.addEventListener('close', ()=>{
     wsReady = false;
-    if(S.code && S.screen !== 'home') $('#connBanner').classList.add('show');
+    if(intentionalClose) return;
+    if(S.code && S.screen !== 'home') $('#connBanner')?.classList.add('show');
+    reconnectAttempt++;
+    const delay = Math.min(1000 * Math.pow(1.6, reconnectAttempt), 8000);
+    reconnectTimer = setTimeout(connectWs, delay);
   });
-  ws.addEventListener('error', ()=>{});
+  ws.addEventListener('error', ()=>{ try{ ws.close(); }catch(e){} });
 }
 function sendMsg(type, data){
-  if(!ws || ws.readyState !== 1) return;
-  ws.send(JSON.stringify(Object.assign({type}, data||{})));
+  const payload = Object.assign({type}, data||{});
+  if(!ws || ws.readyState !== 1){
+    // Queue instead of dropping silently — flushed once the socket (re)connects.
+    pendingMsgs.push(payload);
+    if(!ws || ws.readyState === 3){ connectWs(); }
+    return;
+  }
+  ws.send(JSON.stringify(payload));
 }
 connectWs();
+
+/* Reconnect immediately when the browser/tab comes back online or foreground,
+   instead of waiting for the backoff timer. */
+window.addEventListener('online', ()=>{ if(!wsReady) connectWs(); });
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible' && !wsReady) connectWs();
+});
 
 /* ============================= STATE ============================= */
 const S = {
@@ -1345,11 +1389,23 @@ function onServerMessage(msg){
     case 'joined':
       S.code = msg.code; S.me.id = msg.playerId; S.isHost = msg.isHost;
       S.lobbyAnimated = new Set();
-      goTo('lobby');
+      saveSession(msg.code, msg.playerId);
+      if(S.screen !== 'lobby' && S.screen !== 'game' && S.screen !== 'final') goTo('lobby');
       break;
     case 'errorMsg':
       SFX.wrong();
       toast(msg.message);
+      if(msg.fatal){
+        clearSession();
+        S.code = null; S.me.id = null; S.isHost = false; S.meta = null;
+        goTo('home');
+      }
+      break;
+    case 'roomClosed':
+      clearSession();
+      S.code = null; S.me.id = null; S.isHost = false; S.meta = null;
+      toast('اتاق توسط مدیر بسته شد');
+      goTo('home');
       break;
     case 'state': {
       const prevStatus = S.meta ? S.meta.status : null;
@@ -1552,6 +1608,8 @@ function mountLobby(){
             ${icon('chevronLeft',16)}
           </button>
           <div class="lobby-hint" id="hostHint" style="display:none;"></div>
+          <button class="btn btn-ghost btn-block" id="leaveRoomBtn" style="margin-top:var(--s3);">ترک اتاق</button>
+          <button class="btn btn-ghost btn-block" id="closeRoomBtn" style="margin-top:var(--s2); color:var(--coral); display:none;">حذف اتاق برای همه</button>
         </div>
       </section>
     </div>
@@ -1566,11 +1624,26 @@ function mountLobby(){
     });
   };
   $('#startBtn').onclick = ()=> sendMsg('startGame', {});
+  $('#leaveRoomBtn').onclick = ()=>{
+    sendMsg('leaveRoom', {});
+    clearSession();
+    S.code = null; S.me.id = null; S.isHost = false; S.meta = null;
+    goTo('home');
+  };
+  $('#closeRoomBtn').onclick = ()=>{
+    if(!confirm('اتاق برای همه‌ی بازیکن‌ها حذف می‌شود. مطمئنی؟')) return;
+    sendMsg('closeRoom', {});
+    clearSession();
+    S.code = null; S.me.id = null; S.isHost = false; S.meta = null;
+    goTo('home');
+  };
   renderLobbyDynamic();
 }
 
 function renderLobbyDynamic(){
   if(S.screen !== 'lobby' || !S.meta) return;
+  const closeBtn = $('#closeRoomBtn');
+  if(closeBtn) closeBtn.style.display = S.isHost ? '' : 'none';
   const players = Object.values(S.players).filter(p=>p.connected).sort((a,b)=> (a.colorIdx-b.colorIdx));
   const countEl = $('#playerCount');
   if(countEl) countEl.textContent = faNum(players.length);

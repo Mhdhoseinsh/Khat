@@ -315,6 +315,23 @@ function handleMessage(conn, msg){
   if(!msg || typeof msg.type !== 'string') return;
   const type = msg.type;
 
+  if(type === 'rejoin'){
+    const code = String(msg.code||'').toUpperCase();
+    const room = rooms.get(code);
+    const tempPlayer = {socket: conn.socket, connected:true};
+    if(!room){ send(tempPlayer,'errorMsg',{message:'این اتاق دیگر وجود ندارد', fatal:true}); return; }
+    const player = room.players.get(String(msg.playerId||''));
+    if(!player){ send(tempPlayer,'errorMsg',{message:'اطلاعات بازیکن پیدا نشد', fatal:true}); return; }
+    player.socket = conn.socket;
+    player.connected = true;
+    conn.roomCode = code; conn.playerId = player.id;
+    clearTimeout(room.emptyCleanupTimer);
+    if(room.hostId && !room.players.get(room.hostId)){ room.hostId = player.id; }
+    send(player, 'joined', {code, playerId: player.id, isHost: room.hostId === player.id});
+    send(player, 'canvasSnapshot', {strokes: room.currentStrokes});
+    broadcastState(room);
+    return;
+  }
   if(type === 'createRoom'){
     const code = genRoomCode();
     const id = genId('p');
@@ -411,6 +428,27 @@ function handleMessage(conn, msg){
   else if(type === 'playAgain'){
     if(room.hostId !== player.id || room.status !== 'final') return;
     startGameForRoom(room);
+  }
+  else if(type === 'leaveRoom'){
+    room.players.delete(player.id);
+    conn.roomCode = null; conn.playerId = null;
+    if(room.hostId === player.id){
+      const next = activePlayers(room)[0];
+      room.hostId = next ? next.id : null;
+    }
+    if(room.status === 'drawing' && room.currentDrawerId === player.id){
+      endTurn(room);
+    } else {
+      checkAllGuessedOrEnd(room);
+      broadcastState(room);
+    }
+    scheduleEmptyCleanup(room);
+  }
+  else if(type === 'closeRoom'){
+    if(room.hostId !== player.id) return;
+    broadcastAll(room, 'roomClosed', {});
+    clearRoomTimers(room);
+    rooms.delete(room.code);
   }
 }
 
