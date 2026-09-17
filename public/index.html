@@ -402,7 +402,12 @@ canvas#board{
 }
 .home-input--code::placeholder{letter-spacing:.5px; text-indent:0; font-weight:600; font-size:13.5px;}
 
-/* ===================== NAME HINT (autocomplete) ===================== */
+/* ===================== NAME HINT (autocomplete) =====================
+   - بدون نمایش بر چسب اضافه
+   - تک‌کلمه‌ای: چسبیده به هم
+   - چندکلمه‌ای: با یک فاصله‌ی طبیعی ساده (نه خط فاصله)
+   - تأخیر ۲۰۰ میلی‌ثانیه
+   ==================================================================== */
 .home-input-wrap{position:relative;}
 .home-input-hint{
   position:absolute; inset:0;
@@ -412,44 +417,13 @@ canvas#board{
   pointer-events:none;
   overflow:hidden;
   direction:rtl;
+  white-space:pre;
   color:rgba(139,146,180,.6);
-  opacity:1;
-  transition:opacity .2s ease;
+  transition:opacity .16s ease;
 }
 .home-input-hint.is-hidden{ opacity:0; }
-
-#nameHintInner{
-  white-space:pre;
-  display:inline-block;
-  overflow:hidden;
-  text-overflow:clip;
-  max-width:100%;
-}
-
 .hint-typed{ color:transparent; }
-
-.hint-sep{
-  color:rgba(108,107,255,.85);
-  font-weight:800;
-  padding:0 6px;
-  display:inline-block;
-  animation:hintSepIn .55s cubic-bezier(.34,1.4,.64,1) both;
-}
-@keyframes hintSepIn{
-  0%{ opacity:0; transform:translateY(6px) scale(.6); }
-  60%{ opacity:1; transform:translateY(-2px) scale(1.08); }
-  100%{ opacity:1; transform:translateY(0) scale(1); }
-}
-
-.hint-rest{
-  color:rgba(139,146,180,.6);
-  display:inline-block;
-  animation:hintRestIn .55s .08s cubic-bezier(.34,1.4,.64,1) both;
-}
-@keyframes hintRestIn{
-  from{ opacity:0; transform:translateY(6px); }
-  to{ opacity:1; transform:translateY(0); }
-}
+.hint-rest{ color:rgba(139,146,180,.6); }
 
 .home-cta{
   width:100%; padding:15px 20px; margin-top:var(--s1);
@@ -703,7 +677,7 @@ function icon(name, size){
   return '<svg class="ic" width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICONS[name]||'')+'</svg>';
 }
 
-/* ============================= NAME LIST (تاریخی/اساطیری/فرهنگی) ============================= */
+/* ============================= NAME LIST ============================= */
 const NAME_LIST = [
   'کیومرث', 'هوشنگ', 'طهمورث', 'جمشید', 'فریدون', 'کاوه آهنگر', 'منوچهر',
   'سیاوش', 'کیخسرو', 'کیکاووس', 'کیقباد', 'اسفندیار', 'گشتاسب',
@@ -952,7 +926,7 @@ function mountHome(){
             <label>نام شما</label>
             <div class="home-input-wrap">
               <input class="home-input" id="nameInput" maxlength="32" placeholder="مثلاً نیلوفر" autocomplete="off" spellcheck="false">
-              <div class="home-input-hint is-hidden" id="nameHint" aria-hidden="true"><span id="nameHintInner"></span></div>
+              <div class="home-input-hint is-hidden" id="nameHint" aria-hidden="true"></div>
             </div>
           </div>
 
@@ -989,22 +963,17 @@ function mountHome(){
     updateNameHint();
   }
 
-  /* -------- name hint with 1s delay + separator + inline-attach logic -------- */
   function updateNameHint(){
     const input = $('#nameInput');
     const hint  = $('#nameHint');
-    const inner = $('#nameHintInner');
-    if(!input || !hint || !inner) return;
+    if(!input || !hint) return;
 
     clearTimeout(updateNameHint._t);
-
-    /* hide immediately on any change */
     hint.classList.add('is-hidden');
 
     const val = input.value;
-    if(!val){ inner.innerHTML = ''; return; }
+    if(!val){ hint.innerHTML = ''; return; }
 
-    /* find longest prefix match */
     let match = null;
     for(let i = 0; i < NAME_LIST.length; i++){
       const name = NAME_LIST[i];
@@ -1014,28 +983,26 @@ function mountHome(){
       }
     }
 
-    if(!match){ inner.innerHTML = ''; return; }
+    if(!match){ hint.innerHTML = ''; return; }
 
     const nextChar = match.charAt(val.length);
     const isWordBreak = nextChar === ' ';
     const remainderRaw = match.substring(val.length);
     const remainderDisplay = isWordBreak ? remainderRaw.substring(1) : remainderRaw;
 
-    /* reveal after 1 second */
     updateNameHint._t = setTimeout(()=>{
       if(input.value !== val) return;
 
-      const sepHTML = isWordBreak
-        ? '<span class="hint-sep">—</span>'
-        : '';
+      /* بین اسم و فامیل یک فاصله‌ی ساده؛ تک‌کلمه‌ای چسبیده */
+      const sep = isWordBreak ? ' ' : '';
 
-      inner.innerHTML =
+      hint.innerHTML =
         '<span class="hint-typed">' + escapeHtml(val) + '</span>' +
-        sepHTML +
+        sep +
         '<span class="hint-rest">' + escapeHtml(remainderDisplay) + '؟</span>';
 
       hint.classList.remove('is-hidden');
-    }, 1000);
+    }, 200);
   }
 
   $$('.home-tab').forEach(b=> b.onclick = ()=>{ homeMode = b.dataset.mode; applyHomeMode(); });
