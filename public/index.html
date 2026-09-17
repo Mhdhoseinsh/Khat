@@ -29,10 +29,7 @@
 *{
   box-sizing:border-box;
   -webkit-tap-highlight-color:transparent;
-  -webkit-user-select:none;
-  -moz-user-select:none;
-  -ms-user-select:none;
-  user-select:none;
+  -webkit-user-select:none; -moz-user-select:none; -ms-user-select:none; user-select:none;
   -webkit-touch-callout:none;
 }
 input, textarea{ -webkit-user-select:text; -moz-user-select:text; -ms-user-select:text; user-select:text; }
@@ -266,8 +263,7 @@ canvas#board{
 
 .home-header{
   display:flex; align-items:center; justify-content:flex-start;
-  height:64px;
-  padding:0 var(--s8);
+  height:64px; padding:0 var(--s8);
   border-bottom:1px solid rgba(255,255,255,.06);
   flex-shrink:0;
 }
@@ -390,6 +386,7 @@ canvas#board{
   border-radius:12px;
   color:var(--text);
   font-family:inherit; font-weight:600; font-size:15px;
+  line-height:1.4;
   outline:none; text-align:right;
   transition:border-color .2s, background .2s;
 }
@@ -405,20 +402,54 @@ canvas#board{
 }
 .home-input--code::placeholder{letter-spacing:.5px; text-indent:0; font-weight:600; font-size:13.5px;}
 
+/* ===================== NAME HINT (autocomplete) ===================== */
 .home-input-wrap{position:relative;}
 .home-input-hint{
   position:absolute; inset:0;
   padding:14px 16px;
-  display:flex; align-items:center;
-  justify-content:flex-start;
-  font-family:inherit; font-weight:600; font-size:15px;
+  display:flex; align-items:center; justify-content:flex-start;
+  font-family:inherit; font-weight:600; font-size:15px; line-height:1.4;
   pointer-events:none;
-  white-space:nowrap; overflow:hidden;
+  overflow:hidden;
   direction:rtl;
-  color:rgba(139,146,180,.55);
-  transition:opacity .15s;
+  color:rgba(139,146,180,.6);
+  opacity:1;
+  transition:opacity .2s ease;
 }
-.home-input-hint.is-hidden{opacity:0;}
+.home-input-hint.is-hidden{ opacity:0; }
+
+#nameHintInner{
+  white-space:pre;
+  display:inline-block;
+  overflow:hidden;
+  text-overflow:clip;
+  max-width:100%;
+}
+
+.hint-typed{ color:transparent; }
+
+.hint-sep{
+  color:rgba(108,107,255,.85);
+  font-weight:800;
+  padding:0 6px;
+  display:inline-block;
+  animation:hintSepIn .55s cubic-bezier(.34,1.4,.64,1) both;
+}
+@keyframes hintSepIn{
+  0%{ opacity:0; transform:translateY(6px) scale(.6); }
+  60%{ opacity:1; transform:translateY(-2px) scale(1.08); }
+  100%{ opacity:1; transform:translateY(0) scale(1); }
+}
+
+.hint-rest{
+  color:rgba(139,146,180,.6);
+  display:inline-block;
+  animation:hintRestIn .55s .08s cubic-bezier(.34,1.4,.64,1) both;
+}
+@keyframes hintRestIn{
+  from{ opacity:0; transform:translateY(6px); }
+  to{ opacity:1; transform:translateY(0); }
+}
 
 .home-cta{
   width:100%; padding:15px 20px; margin-top:var(--s1);
@@ -672,50 +703,29 @@ function icon(name, size){
   return '<svg class="ic" width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICONS[name]||'')+'</svg>';
 }
 
-/* ============================= NAME HINTS =============================
-   لیست اسامی تاریخی، اساطیری و شخصیت‌های مهم و موثر ایرانی.
-   مچ به‌صورت prefix انجام می‌شود: هرچه کاربر تایپ کند، اگر پیشوند یکی
-   از این اسامی باشد، ادامه‌ی اسم به‌صورت کمرنگ نمایش داده می‌شود.
-   ===================================================================== */
+/* ============================= NAME LIST (تاریخی/اساطیری/فرهنگی) ============================= */
 const NAME_LIST = [
-  /* پیشدادیان و کیانیان — اساطیری */
   'کیومرث', 'هوشنگ', 'طهمورث', 'جمشید', 'فریدون', 'کاوه آهنگر', 'منوچهر',
   'سیاوش', 'کیخسرو', 'کیکاووس', 'کیقباد', 'اسفندیار', 'گشتاسب',
   'رستم دستان', 'سهراب', 'زال', 'آرش کمانگیر', 'گردآفرید', 'رودابه',
   'تهمینه', 'سیندخت', 'گودرز', 'گیو', 'بیژن',
-
-  /* هخامنشیان */
   'کوروش کبیر', 'داریوش بزرگ', 'خشایارشا', 'آتوسا',
-
-  /* اشکانیان */
   'ارشک', 'مهرداد',
-
-  /* ساسانیان */
   'اردشیر بابکان', 'شاپور', 'انوشیروان', 'خسرو پرویز', 'بهرام گور',
   'مانی', 'مزدک',
-
-  /* دانشمندان و فلاسفه */
   'ابوعلی سینا', 'ابوریحان بیرونی', 'محمد زکریای رازی', 'خوارزمی',
   'فارابی', 'خواجه نصیرالدین طوسی', 'ملاصدرا', 'شیخ بهایی',
-
-  /* شاعران و ادیبان */
   'ابوالقاسم فردوسی', 'حافظ شیرازی', 'سعدی شیرازی', 'عمر خیام',
   'مولانا', 'عطار نیشابوری', 'نظامی گنجوی', 'رودکی', 'نیما یوشیج',
   'سهراب سپهری', 'فروغ فرخزاد', 'پروین اعتصامی', 'احمد شاملو',
   'مهدی اخوان ثالث', 'شهریار', 'علی‌اکبر دهخدا',
-
-  /* پادشاهان و رهبران تاریخی */
   'بابک خرمدین', 'یعقوب لیث صفاری', 'اسماعیل سامانی', 'سلطان محمود غزنوی',
   'خواجه نظام‌الملک', 'شاه اسماعیل صفوی', 'شاه عباس صفوی',
   'نادرشاه افشار', 'کریم خان زند', 'آقامحمدخان قاجار',
   'فتحعلی شاه قاجار', 'عباس میرزا', 'امیرکبیر', 'ناصرالدین شاه',
   'ستارخان', 'باقرخان', 'میرزا کوچک خان',
-
-  /* پهلوی و معاصر */
   'رضاشاه پهلوی', 'محمدرضا پهلوی', 'محمد مصدق', 'سید حسن مدرس',
   'آیت‌الله کاشانی',
-
-  /* ادبی و فرهنگی معاصر */
   'صادق هدایت', 'جلال آل‌احمد', 'سیمین دانشور', 'کمال‌الملک',
   'پرویز ناتل خانلری', 'محمود حسابی'
 ];
@@ -744,7 +754,6 @@ function faNum(n){
 const PALETTE = ['#FF6A5B','#2FB6A6','#7C83FD','#FFC857','#FF8FB1','#59C36A','#5AA9E6','#C77DFF'];
 function colorFor(idx){ return PALETTE[idx % PALETTE.length]; }
 
-/* reliable clipboard copy */
 function copyText(text){
   if(navigator.clipboard && window.isSecureContext){
     return navigator.clipboard.writeText(text).then(()=> true).catch(()=> legacyCopy(text));
@@ -943,7 +952,7 @@ function mountHome(){
             <label>نام شما</label>
             <div class="home-input-wrap">
               <input class="home-input" id="nameInput" maxlength="32" placeholder="مثلاً نیلوفر" autocomplete="off" spellcheck="false">
-              <div class="home-input-hint is-hidden" id="nameHint" aria-hidden="true"></div>
+              <div class="home-input-hint is-hidden" id="nameHint" aria-hidden="true"><span id="nameHintInner"></span></div>
             </div>
           </div>
 
@@ -980,19 +989,22 @@ function mountHome(){
     updateNameHint();
   }
 
+  /* -------- name hint with 1s delay + separator + inline-attach logic -------- */
   function updateNameHint(){
     const input = $('#nameInput');
-    const hint = $('#nameHint');
-    if(!input || !hint) return;
+    const hint  = $('#nameHint');
+    const inner = $('#nameHintInner');
+    if(!input || !hint || !inner) return;
+
+    clearTimeout(updateNameHint._t);
+
+    /* hide immediately on any change */
+    hint.classList.add('is-hidden');
+
     const val = input.value;
+    if(!val){ inner.innerHTML = ''; return; }
 
-    if(!val){
-      hint.classList.add('is-hidden');
-      hint.innerHTML = '';
-      return;
-    }
-
-    /* prefix match: اولین اسمی که با متن وارد شده شروع می‌شود و کامل‌تر است */
+    /* find longest prefix match */
     let match = null;
     for(let i = 0; i < NAME_LIST.length; i++){
       const name = NAME_LIST[i];
@@ -1002,19 +1014,28 @@ function mountHome(){
       }
     }
 
-    if(!match){
-      hint.classList.add('is-hidden');
-      hint.innerHTML = '';
-      return;
-    }
+    if(!match){ inner.innerHTML = ''; return; }
 
-    const remainder = match.substring(val.length);
-    /* span اول نامرئی است تا همان عرض متن تایپ‌شده را اشغال کند،
-       span دوم باقی‌مانده را با رنگ کم‌رنگ نشان می‌دهد */
-    hint.innerHTML =
-      '<span style="color:transparent">' + escapeHtml(val) + '</span>' +
-      '<span>' + escapeHtml(remainder) + '؟</span>';
-    hint.classList.remove('is-hidden');
+    const nextChar = match.charAt(val.length);
+    const isWordBreak = nextChar === ' ';
+    const remainderRaw = match.substring(val.length);
+    const remainderDisplay = isWordBreak ? remainderRaw.substring(1) : remainderRaw;
+
+    /* reveal after 1 second */
+    updateNameHint._t = setTimeout(()=>{
+      if(input.value !== val) return;
+
+      const sepHTML = isWordBreak
+        ? '<span class="hint-sep">—</span>'
+        : '';
+
+      inner.innerHTML =
+        '<span class="hint-typed">' + escapeHtml(val) + '</span>' +
+        sepHTML +
+        '<span class="hint-rest">' + escapeHtml(remainderDisplay) + '؟</span>';
+
+      hint.classList.remove('is-hidden');
+    }, 1000);
   }
 
   $$('.home-tab').forEach(b=> b.onclick = ()=>{ homeMode = b.dataset.mode; applyHomeMode(); });
