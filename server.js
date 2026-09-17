@@ -1,7 +1,4 @@
-/* خط‌خطی — server.js
- * Zero external dependencies: plain Node http + a minimal hand-rolled WebSocket
- * server (RFC 6455) plus authoritative game-room logic. Just `node server.js`.
- */
+/* خط‌خطی — server.js */
 'use strict';
 const http = require('http');
 const fs = require('fs');
@@ -9,7 +6,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
-const ADVANCE_DELAY = process.env.FAST_TEST === '1' ? 300 : 4500;
+const ADVANCE_DELAY = process.env.FAST_TEST === '1' ? 300 : 7000; // ۷ ثانیه دیالوگ
 
 /* ============================= static file ============================= */
 const indexPath = path.join(__dirname, 'public', 'index.html');
@@ -65,7 +62,7 @@ function makeFrameParser(onFrame){
         offset = 4;
       } else if(len === 127){
         if(buf.length < 10) return;
-        len = buf.readUInt32BE(6); // assume payload fits in 32 bits (fine for this app)
+        len = buf.readUInt32BE(6);
         offset = 10;
       }
       let maskKey = null;
@@ -135,16 +132,16 @@ function buildOptions(word){
 }
 
 /* ============================= room state ============================= */
-const rooms = new Map(); // code -> room
+const rooms = new Map();
 
 function newRoom(code, hostId){
   return {
     code, hostId, status:'lobby', rounds:2, turnSeconds:60,
-    players: new Map(), turnOrder: [], currentRound:1, currentTurnIndex:0,
+    players: new Map(), turnOrder: [], currentRound:1, currentTurnIndex:-1,
     currentDrawerId:null, turnSeq:0, currentWord:null, currentOptions:[],
     usedWords: new Set(), turnStartAt:0, turnEndAt:0, guessedIds: new Set(), turnScores:{},
     currentStrokes: [], turnTimer:null, advanceTimer:null, emptyCleanupTimer:null,
-    answers: {}
+    answers: {}, nextTurnInfo: null, isPreGame: false
   };
 }
 
@@ -169,7 +166,7 @@ function publicPlayers(room){
 function publicMeta(room, forId){
   const isDrawer = room.currentDrawerId === forId;
   const wordLen = room.currentWord ? room.currentWord.replace(/[\u200c\s]/g,'').length : 0;
-  return {
+  const meta = {
     code: room.code, hostId: room.hostId, status: room.status,
     rounds: room.rounds, turnSeconds: room.turnSeconds,
     turnOrder: room.turnOrder, currentRound: room.currentRound, currentTurnIndex: room.currentTurnIndex,
@@ -182,8 +179,17 @@ function publicMeta(room, forId){
     turnScores: room.turnScores || {},
     myAnswer: (room.answers && room.answers[forId]) ? room.answers[forId] : null,
     wrongIds: Object.keys(room.answers||{}).filter(id => room.answers[id] && !room.answers[id].correct),
-    lastWordReveal: room.status==='turnEnd' ? room.currentWord : null
+    lastWordReveal: room.status==='turnEnd' ? room.currentWord : null,
+    isPreGame: room.status === 'turnEnd' && room.isPreGame
   };
+  if(room.status === 'turnEnd' && room.nextTurnInfo){
+    meta.nextDrawerId = room.nextTurnInfo.drawerId;
+    meta.nextRound = room.nextTurnInfo.round;
+    if(room.nextTurnInfo.drawerId === forId){
+      meta.nextWord = room.nextTurnInfo.word;
+    }
+  }
+  return meta;
 }
 function broadcastState(room){
   room.players.forEach(p=>{
@@ -206,11 +212,30 @@ function scheduleEmptyCleanup(room){
   }, 10*60*1000);
 }
 
-function beginTurn(room, drawerId){
+/* ---- turn computation ---- */
+function computeNextTurnInfo(room){
+  let idx = room.currentTurnIndex + 1;
+  let round = room.currentRound;
+  let guard = 0;
+  const maxSteps = Math.max(1, room.turnOrder.length) * Math.max(1, room.rounds) + 2;
+  while(guard++ < maxSteps){
+    if(idx >= room.turnOrder.length){ idx = 0; round += 1; }
+    if(round > room.rounds) return null;
+    const candidateId = room.turnOrder[idx];
+    const p = room.players.get(candidateId);
+    if(p && p.connected){
+      const word = pickWords(room.usedWords, 1)[0];
+      room.usedWords.add(word);
+      return { drawerId: candidateId, turnIndex: idx, round: round, word: word };
+    }
+    idx++;
+  }
+  return null;
+}
+
+function beginTurnWithWord(room, drawerId, word){
   clearTimeout(room.turnTimer); clearTimeout(room.advanceTimer);
-  const word = pickWords(room.usedWords, 1)[0];
   room.currentWord = word;
-  room.usedWords.add(word);
   room.currentOptions = buildOptions(word);
   room.status = 'drawing';
   room.currentDrawerId = drawerId;
@@ -226,54 +251,63 @@ function beginTurn(room, drawerId){
   room.turnTimer = setTimeout(()=> endTurn(room), room.turnSeconds*1000);
 }
 
+function startGameForRoom(room){
+  const ids = activePlayers(room).map(p=>p.id);
+  if(ids.length < 2) return false;
+  room.turnOrder = shuffle(ids);
+  room.currentRound = 1;
+  room.currentTurnIndex = -1;
+  room.usedWords = new Set();
+  room.players.forEach(p=> p.score = 0);
+  room.currentWord = null;
+  room.currentDrawerId = null;
+  room.guessedIds = new Set();
+  room.turnScores = {};
+  room.answers = {};
+  room.currentStrokes = [];
+  room.nextTurnInfo = null;
+
+  const info = computeNextTurnInfo(room);
+  if(!info){ room.status = 'final'; broadcastState(room); return false; }
+
+  room.nextTurnInfo = info;
+  room.isPreGame = true;
+  room.status = 'turnEnd';
+  broadcastState(room);
+  clearTimeout(room.advanceTimer);
+  room.advanceTimer = setTimeout(()=> advanceTurn(room), ADVANCE_DELAY);
+  return true;
+}
+
 function endTurn(room){
   if(room.status !== 'drawing') return;
   clearTimeout(room.turnTimer);
+  const info = computeNextTurnInfo(room);
+  room.nextTurnInfo = info;
+  room.isPreGame = false;
   room.status = 'turnEnd';
   broadcastState(room);
+  clearTimeout(room.advanceTimer);
   room.advanceTimer = setTimeout(()=> advanceTurn(room), ADVANCE_DELAY);
 }
 
 function advanceTurn(room){
   if(room.status !== 'turnEnd') return;
-  stepToNextEligible(room);
-}
-function stepToNextEligible(room){
-  let idx = room.currentTurnIndex + 1;
-  let round = room.currentRound;
-  let guard = 0;
-  const maxSteps = Math.max(1, room.turnOrder.length) * Math.max(1, room.rounds) + 2;
-  while(guard++ < maxSteps){
-    if(idx >= room.turnOrder.length){ idx = 0; round += 1; }
-    if(round > room.rounds){ room.status = 'final'; broadcastState(room); return; }
-    const candidateId = room.turnOrder[idx];
-    const p = room.players.get(candidateId);
-    if(p && p.connected){
-      room.currentTurnIndex = idx; room.currentRound = round;
-      beginTurn(room, candidateId);
-      return;
-    }
-    idx++;
-  }
-  room.status = 'final'; broadcastState(room);
+  const info = room.nextTurnInfo;
+  room.nextTurnInfo = null;
+  room.isPreGame = false;
+  if(!info){ room.status = 'final'; broadcastState(room); return; }
+  room.currentTurnIndex = info.turnIndex;
+  room.currentRound = info.round;
+  beginTurnWithWord(room, info.drawerId, info.word);
 }
 
 function checkAllGuessedOrEnd(room){
   if(room.status !== 'drawing') return;
   const guesserIds = activePlayers(room).filter(p=>p.id !== room.currentDrawerId).map(p=>p.id);
   if(guesserIds.length === 0) return;
-  const allAnswered = guesserIds.every(id=> room.answers[id]); // guessed right or used their wrong attempt
+  const allAnswered = guesserIds.every(id=> room.answers[id]);
   if(allAnswered) endTurn(room);
-}
-
-function startGameForRoom(room){
-  const ids = activePlayers(room).map(p=>p.id);
-  if(ids.length < 2) return false;
-  room.turnOrder = shuffle(ids);
-  room.currentRound = 1; room.currentTurnIndex = 0; room.usedWords = new Set();
-  room.players.forEach(p=> p.score = 0);
-  beginTurn(room, room.turnOrder[0]);
-  return true;
 }
 
 /* ============================= message handling ============================= */
@@ -308,7 +342,6 @@ function handleMessage(conn, msg){
     return;
   }
 
-  // everything below requires an existing room/player
   const room = conn.roomCode ? rooms.get(conn.roomCode) : null;
   if(!room) return;
   const player = room.players.get(conn.playerId);
@@ -353,12 +386,12 @@ function handleMessage(conn, msg){
   }
   else if(type === 'guess'){
     if(room.status !== 'drawing' || player.id === room.currentDrawerId) return;
-    if(room.answers[player.id]) return; // already used their one attempt this turn (right or wrong)
+    if(room.answers[player.id]) return;
     const word = String(msg.word||'');
     if(!word || room.currentOptions.indexOf(word) === -1) return;
     const correct = normalizeFa(word) === normalizeFa(room.currentWord||'');
     if(correct){
-      const rank = room.guessedIds.size; // how many already guessed correctly before this one
+      const rank = room.guessedIds.size;
       const points = rank === 0 ? 5 : rank === 1 ? 4 : 3;
       room.guessedIds.add(player.id);
       room.answers[player.id] = {word, correct:true};
@@ -397,6 +430,12 @@ function handleDisconnect(conn){
       endTurn(room);
     } else {
       checkAllGuessedOrEnd(room);
+    }
+  } else if(room.status === 'turnEnd'){
+    if(room.nextTurnInfo && room.nextTurnInfo.drawerId === player.id){
+      if(room.nextTurnInfo.word) room.usedWords.delete(room.nextTurnInfo.word);
+      room.nextTurnInfo = computeNextTurnInfo(room);
+      broadcastState(room);
     }
   }
   if(room.hostId === player.id){
@@ -444,7 +483,6 @@ server.on('upgrade', (req, socket)=>{
   socket.setTimeout(0);
 });
 
-// heartbeat so proxies (Render etc.) don't kill idle connections
 setInterval(()=>{
   rooms.forEach(room=>{
     room.players.forEach(p=>{ if(p.connected && p.socket) sendPing(p.socket); });
