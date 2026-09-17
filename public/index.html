@@ -201,13 +201,23 @@ canvas#board{
 .chat-msg.correct .ok-ic svg{width:11px; height:11px; stroke-width:3;}
 .chat-form{display:flex; gap:var(--s2); margin-top:var(--s3);}
 .chat-form input{flex:1;}
+.guess-options{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:var(--s3);}
+.guess-option-btn{
+  font-family:inherit; font-weight:700; font-size:13.5px; cursor:pointer;
+  border:1.5px solid var(--border-strong); border-radius:12px; padding:10px 8px;
+  background:var(--surface-2); color:var(--text); text-align:center;
+  transition:transform .12s ease, filter .12s ease, opacity .12s ease;
+}
+.guess-option-btn:hover{filter:brightness(1.12);}
+.guess-option-btn:active{transform:scale(.96);}
+.guess-option-btn:disabled{opacity:.35; cursor:not-allowed;}
+.guess-option-btn.picked-wrong{border-color:var(--coral); opacity:.5;}
+.guess-waiting-note{text-align:center; color:var(--text-soft); font-size:13.5px; font-weight:600; padding:var(--s3) 0;}
 
-.choose-overlay,.turnend-overlay{
+.turnend-overlay{
   position:absolute; inset:0; background:rgba(9,11,20,.94); backdrop-filter:blur(6px); border-radius:16px;
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--s4); padding:var(--s5); text-align:center; z-index:5;
 }
-.choose-words{display:flex; gap:var(--s3); flex-wrap:wrap; justify-content:center;}
-.word-choice-btn{font-size:19px; font-weight:800; padding:var(--s4) var(--s5);}
 .reveal-word{font-size:26px; font-weight:900; color:var(--pink); text-shadow:0 0 20px rgba(255,111,160,.45);}
 
 .leaderboard-mini{display:flex; flex-direction:column; gap:6px; width:100%; max-width:280px;}
@@ -1181,7 +1191,6 @@ function mountGame(){
             <div class="word-display" id="wordDisplay"></div>
             <div style="position:relative;">
               <canvas id="board" width="800" height="600"></canvas>
-              <div class="choose-overlay" id="chooseOverlay" style="display:none;"></div>
               <div class="turnend-overlay" id="turnendOverlay" style="display:none;"></div>
             </div>
             <div class="toolbar" id="toolbar" style="display:none;">
@@ -1200,10 +1209,7 @@ function mountGame(){
           <div class="card chat-card">
             <div class="section-title">حدس‌ها</div>
             <div class="chat-list" id="chatList"></div>
-            <form class="chat-form" id="guessForm">
-              <input class="input" id="guessInput" placeholder="حدست چیه؟" autocomplete="off">
-              <button class="btn btn-primary btn-icon" type="submit">فرستادن</button>
-            </form>
+            <div class="guess-options" id="guessOptions"></div>
           </div>
         </div>
       </div>
@@ -1212,8 +1218,8 @@ function mountGame(){
 
   setupCanvas();
   setupToolbar();
-  $('#guessForm').addEventListener('submit', onSubmitGuess);
   S.lastTurnSeq = null;
+  S.pickedOption = null;
   updateGameDynamic(null, null);
   startTimerLoop();
 }
@@ -1257,6 +1263,7 @@ function updateGameDynamic(prevStatus, prevSeq){
     S.remoteStrokes = {};
     $('#chatList').innerHTML = '';
     S.lastTurnSeq = meta.turnSeq;
+    S.pickedOption = null;
   }
 
   const wd = $('#wordDisplay');
@@ -1272,43 +1279,33 @@ function updateGameDynamic(prevStatus, prevSeq){
     wd.innerHTML = '';
   }
 
-  const chooseOv = $('#chooseOverlay');
   const endOv = $('#turnendOverlay');
   const toolbar = $('#toolbar');
-  const guessForm = $('#guessForm');
+  const guessOptions = $('#guessOptions');
   const canvas = $('#board');
 
-  if(meta.status === 'choosing'){
-    if(iAmDrawer){
-      chooseOv.style.display = 'flex';
-      chooseOv.innerHTML = `<div style="font-weight:800; font-size:16px;">یک کلمه انتخاب کن تا بکشی</div>
-        <div class="choose-words">${(meta.wordChoices||[]).map((w,i)=>`<button class="btn btn-yellow word-choice-btn fadeUp" style="animation-delay:${i*80}ms" data-w="${escapeHtml(w)}">${escapeHtml(w)}</button>`).join('')}</div>`;
-      $$('.word-choice-btn', chooseOv).forEach(b=> b.onclick = ()=> sendMsg('chooseWord', {word: b.dataset.w}));
-    } else {
-      chooseOv.style.display = 'flex';
-      chooseOv.innerHTML = `<div class="pop" style="font-weight:800; font-size:16px;">${escapeHtml(drawer?drawer.name:'')} در حال انتخاب کلمه است...</div>`;
-    }
-    endOv.style.display = 'none';
-    toolbar.style.display = 'none';
-    guessForm.style.display = 'none';
-    canvas.classList.add('canvas-disabled');
-  } else if(meta.status === 'drawing'){
-    chooseOv.style.display = 'none';
+  if(meta.status === 'drawing'){
     endOv.style.display = 'none';
     toolbar.style.display = iAmDrawer ? 'flex' : 'none';
     canvas.classList.toggle('canvas-disabled', !iAmDrawer);
     const alreadyGuessed = (meta.guessedIds||[]).indexOf(S.me.id) !== -1;
     if(iAmDrawer){
-      guessForm.style.display = 'none';
+      guessOptions.innerHTML = '';
+    } else if(alreadyGuessed){
+      guessOptions.innerHTML = `<div class="guess-waiting-note">درست حدس زدی! منتظر بمان...</div>`;
     } else {
-      guessForm.style.display = 'flex';
-      $('#guessInput').disabled = alreadyGuessed;
-      $('#guessInput').placeholder = alreadyGuessed ? 'درست حدس زدی! منتظر بمان...' : 'حدست چیه؟';
+      guessOptions.innerHTML = (meta.options||[]).map(w=>
+        `<button type="button" class="guess-option-btn ${S.pickedOption===w?'picked-wrong':''}" ${S.pickedOption===w?'disabled':''} data-w="${escapeHtml(w)}">${escapeHtml(w)}</button>`
+      ).join('');
+      $$('.guess-option-btn', guessOptions).forEach(b=> b.onclick = ()=>{
+        S.pickedOption = b.dataset.w;
+        sendMsg('guess', {word: b.dataset.w});
+        updateGameDynamic();
+      });
     }
   } else if(meta.status === 'turnEnd'){
-    chooseOv.style.display = 'none';
     toolbar.style.display = 'none';
-    guessForm.style.display = 'none';
+    guessOptions.innerHTML = '';
     canvas.classList.add('canvas-disabled');
     endOv.style.display = 'flex';
     const scores = meta.turnScores || {};
@@ -1324,8 +1321,8 @@ function updateGameDynamic(prevStatus, prevSeq){
 
   const sorted = Object.values(players).sort((a,b)=> b.score - a.score);
   $('#scoreList').innerHTML = sorted.map(p=>{
-    const isDrawingNow = p.id === meta.currentDrawerId && (meta.status==='drawing'||meta.status==='choosing');
-    const guessedNow = (meta.guessedIds||[]).indexOf(p.id) !== -1 && meta.status!=='choosing';
+    const isDrawingNow = p.id === meta.currentDrawerId && meta.status==='drawing';
+    const guessedNow = (meta.guessedIds||[]).indexOf(p.id) !== -1;
     const drawerIc = isDrawingNow ? '<span class="row-ic">'+icon('pencil',13)+'</span>' : '';
     const guessedIc = guessedNow ? '<span class="row-ic row-ic--ok">'+icon('check',12)+'</span>' : '';
     return `<div class="score-row ${isDrawingNow?'drawing-now':''} ${guessedNow?'guessed':''} ${p.connected?'':'offline'}">
@@ -1350,15 +1347,6 @@ function appendChatMessage(g){
   }
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
-}
-
-function onSubmitGuess(e){
-  e.preventDefault();
-  const input = $('#guessInput');
-  const text = (input.value||'').trim();
-  if(!text) return;
-  input.value = '';
-  sendMsg('guess', {text});
 }
 
 /* ============================= CANVAS / DRAWING ============================= */
@@ -1451,7 +1439,7 @@ function clearCanvasLocal(){
 }
 
 function setupToolbar(){
-  const colors = ['#22252B','#FFFFFF','#FF6A5B','#FFC857','#2FB6A6','#5AA9E6','#7C83FD','#FF8FB1','#59C36A','#8B5E34'];
+  const colors = ['#22252B','#FF6A5B','#FFC857','#2FB6A6','#5AA9E6','#7C83FD','#FF8FB1','#59C36A','#8B5E34'];
   const sw = $('#swatches');
   sw.innerHTML = colors.map(c=> `<span class="swatch ${c===S.tool.color?'sel':''}" data-c="${c}" style="background:${c}; ${c==='#FFFFFF'?'box-shadow:inset 0 0 0 1px #ccc;':''}"></span>`).join('');
   $$('.swatch', sw).forEach(el=> el.onclick = ()=>{
