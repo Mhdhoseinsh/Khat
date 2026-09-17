@@ -211,7 +211,8 @@ canvas#board{
 .guess-option-btn:hover{filter:brightness(1.12);}
 .guess-option-btn:active{transform:scale(.96);}
 .guess-option-btn:disabled{opacity:.35; cursor:not-allowed;}
-.guess-option-btn.picked-wrong{border-color:var(--coral); opacity:.5;}
+.guess-option-btn.picked-wrong{border-color:var(--coral); background:var(--coral); color:#fff; opacity:.85;}
+.guess-option-btn.picked-correct{border-color:var(--green); background:var(--green); color:#fff; opacity:.85;}
 .guess-waiting-note{text-align:center; color:var(--text-soft); font-size:13.5px; font-weight:600; padding:var(--s3) 0;}
 
 .turnend-overlay{
@@ -1288,14 +1289,22 @@ function updateGameDynamic(prevStatus, prevSeq){
     endOv.style.display = 'none';
     toolbar.style.display = iAmDrawer ? 'flex' : 'none';
     canvas.classList.toggle('canvas-disabled', !iAmDrawer);
-    const alreadyGuessed = (meta.guessedIds||[]).indexOf(S.me.id) !== -1;
+    const myAnswer = meta.myAnswer;
     if(iAmDrawer){
       guessOptions.innerHTML = '';
-    } else if(alreadyGuessed){
-      guessOptions.innerHTML = `<div class="guess-waiting-note">درست حدس زدی! منتظر بمان...</div>`;
+    } else if(myAnswer || S.pickedOption){
+      const pickedWord = myAnswer ? myAnswer.word : S.pickedOption;
+      const isCorrect = myAnswer ? myAnswer.correct : false;
+      guessOptions.innerHTML = (meta.options||[]).map(w=>{
+        let cls = 'guess-option-btn';
+        if(w === pickedWord) cls += (myAnswer ? (isCorrect?' picked-correct':' picked-wrong') : '');
+        return `<button type="button" class="${cls}" disabled data-w="${escapeHtml(w)}">${escapeHtml(w)}</button>`;
+      }).join('') + (myAnswer
+        ? `<div class="guess-waiting-note">${isCorrect ? 'درست حدس زدی! منتظر بمان...' : 'اشتباه حدس زدی! برای این نوبت دیگر نمی‌توانی حدس بزنی.'}</div>`
+        : '');
     } else {
       guessOptions.innerHTML = (meta.options||[]).map(w=>
-        `<button type="button" class="guess-option-btn ${S.pickedOption===w?'picked-wrong':''}" ${S.pickedOption===w?'disabled':''} data-w="${escapeHtml(w)}">${escapeHtml(w)}</button>`
+        `<button type="button" class="guess-option-btn" data-w="${escapeHtml(w)}">${escapeHtml(w)}</button>`
       ).join('');
       $$('.guess-option-btn', guessOptions).forEach(b=> b.onclick = ()=>{
         S.pickedOption = b.dataset.w;
@@ -1373,6 +1382,7 @@ function setupCanvas(){
     S.curStrokeId = id;
     const stroke = { id, tool:S.tool.mode, color:S.tool.color, size:S.tool.size, points:[[x,y]] };
     S.localStrokes.push(stroke);
+    drawSegment(stroke, 0, 0);
     sendMsg('strokeStart', {id, tool:S.tool.mode, color:S.tool.color, size:S.tool.size, point:[x,y]});
   }
   function move(e){
