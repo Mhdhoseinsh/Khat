@@ -10,7 +10,6 @@ const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
 const ADVANCE_DELAY = process.env.FAST_TEST === '1' ? 300 : 4500;
-const CHOOSE_TIMEOUT = process.env.FAST_TEST === '1' ? 4000 : 20000;
 
 /* ============================= static file ============================= */
 const indexPath = path.join(__dirname, 'public', 'index.html');
@@ -129,6 +128,11 @@ function pickWords(usedSet, n){
   }
   return out;
 }
+function buildOptions(word){
+  const others = WORDS.filter(w=> w !== word);
+  const distractors = shuffle(others).slice(0, 9);
+  return shuffle([word].concat(distractors));
+}
 
 /* ============================= room state ============================= */
 const rooms = new Map(); // code -> room
@@ -137,7 +141,7 @@ function newRoom(code, hostId){
   return {
     code, hostId, status:'lobby', rounds:2, turnSeconds:60,
     players: new Map(), turnOrder: [], currentRound:1, currentTurnIndex:0,
-    currentDrawerId:null, turnSeq:0, currentWord:null, wordChoices:[],
+    currentDrawerId:null, turnSeq:0, currentWord:null, currentOptions:[],
     usedWords: new Set(), turnStartAt:0, turnEndAt:0, guessedIds: new Set(), turnScores:{},
     currentStrokes: [], turnTimer:null, advanceTimer:null, emptyCleanupTimer:null
   };
@@ -171,7 +175,7 @@ function publicMeta(room, forId){
     currentDrawerId: room.currentDrawerId, turnSeq: room.turnSeq,
     currentWord: isDrawer ? room.currentWord : null,
     wordLen: wordLen,
-    wordChoices: (isDrawer && room.status==='choosing') ? room.wordChoices : [],
+    options: (!isDrawer && room.status==='drawing') ? room.currentOptions : [],
     turnEndAt: room.turnEndAt,
     guessedIds: Array.from(room.guessedIds||[]),
     turnScores: room.turnScores || {},
@@ -201,33 +205,20 @@ function scheduleEmptyCleanup(room){
 
 function beginTurn(room, drawerId){
   clearTimeout(room.turnTimer); clearTimeout(room.advanceTimer);
-  const words = pickWords(room.usedWords, 3);
-  room.status = 'choosing';
+  const word = pickWords(room.usedWords, 1)[0];
+  room.currentWord = word;
+  room.usedWords.add(word);
+  room.currentOptions = buildOptions(word);
+  room.status = 'drawing';
   room.currentDrawerId = drawerId;
   room.turnSeq += 1;
-  room.wordChoices = words;
-  room.currentWord = null;
   room.guessedIds = new Set();
   room.turnScores = {};
   room.currentStrokes = [];
-  broadcastState(room);
-  broadcastCanvas(room);
-  room.turnTimer = setTimeout(()=>{
-    if(room.status === 'choosing') chooseWordForRoom(room, room.wordChoices[0]);
-  }, CHOOSE_TIMEOUT);
-}
-
-function chooseWordForRoom(room, word){
-  if(room.status !== 'choosing') return;
-  clearTimeout(room.turnTimer);
-  room.currentWord = word;
-  room.usedWords.add(word);
-  room.status = 'drawing';
   room.turnStartAt = Date.now();
   room.turnEndAt = Date.now() + room.turnSeconds*1000;
-  room.guessedIds = new Set();
-  room.turnScores = {};
   broadcastState(room);
+  broadcastCanvas(room);
   room.turnTimer = setTimeout(()=> endTurn(room), room.turnSeconds*1000);
 }
 
@@ -327,11 +318,6 @@ function handleMessage(conn, msg){
     if(room.hostId !== player.id || room.status !== 'lobby') return;
     startGameForRoom(room);
   }
-  else if(type === 'chooseWord'){
-    if(room.status !== 'choosing' || room.currentDrawerId !== player.id) return;
-    if(room.wordChoices.indexOf(msg.word) === -1) return;
-    chooseWordForRoom(room, msg.word);
-  }
   else if(type === 'strokeStart'){
     if(room.status !== 'drawing' || room.currentDrawerId !== player.id) return;
     if(!msg.id || !Array.isArray(msg.point)) return;
@@ -362,22 +348,20 @@ function handleMessage(conn, msg){
   else if(type === 'guess'){
     if(room.status !== 'drawing' || player.id === room.currentDrawerId) return;
     if(room.guessedIds.has(player.id)) return;
-    const text = String(msg.text||'').slice(0,80);
-    if(!text.trim()) return;
-    const correct = normalizeFa(text) === normalizeFa(room.currentWord||'');
+    const word = String(msg.word||'');
+    if(!word || room.currentOptions.indexOf(word) === -1) return;
+    const correct = normalizeFa(word) === normalizeFa(room.currentWord||'');
     if(correct){
-      const remainRatio = clamp((room.turnEndAt - Date.now()) / (room.turnSeconds*1000), 0, 1);
-      const points = clamp(Math.round(20 + 80*remainRatio), 20, 100);
+      const rank = room.guessedIds.size; // how many already guessed correctly before this one
+      const points = rank === 0 ? 5 : rank === 1 ? 4 : 3;
       room.guessedIds.add(player.id);
       room.turnScores[player.id] = points;
       player.score += points;
       const drawer = room.players.get(room.currentDrawerId);
-      if(drawer){ drawer.score += 10; room.turnScores[drawer.id] = (room.turnScores[drawer.id]||0) + 10; }
+      if(drawer){ drawer.score += 3; room.turnScores[drawer.id] = (room.turnScores[drawer.id]||0) + 3; }
       broadcastAll(room, 'chatMessage', {kind:'correct', name: player.name, points});
       broadcastState(room);
       checkAllGuessedOrEnd(room);
-    } else {
-      broadcastAll(room, 'chatMessage', {kind:'chat', name: player.name, text});
     }
   }
   else if(type === 'playAgain'){
@@ -397,11 +381,10 @@ function handleDisconnect(conn){
 
   if(room.status === 'lobby'){
     room.players.delete(player.id);
-  } else if(room.status === 'drawing' || room.status === 'choosing'){
+  } else if(room.status === 'drawing'){
     if(room.currentDrawerId === player.id){
-      if(room.status === 'drawing') endTurn(room);
-      else stepToNextEligible(room);
-    } else if(room.status === 'drawing'){
+      endTurn(room);
+    } else {
       checkAllGuessedOrEnd(room);
     }
   }
