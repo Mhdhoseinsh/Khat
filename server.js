@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 const ADVANCE_DELAY = process.env.FAST_TEST === '1' ? 300 : 7000; // ۷ ثانیه دیالوگ
 
 /* ============================= static file ============================= */
-const indexPath = path.join(__dirname, 'public', 'index.html');
+const indexPath = path.join(__dirname, 'index.html');
 function loadIndex(){ return fs.readFileSync(indexPath); }
 let indexHtml = loadIndex();
 
