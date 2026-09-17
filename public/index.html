@@ -24,7 +24,6 @@
   --coral:#FF5470;
   --radius: 18px;
 
-  /* spacing scale */
   --s1: 4px;
   --s2: 8px;
   --s3: 12px;
@@ -36,7 +35,21 @@
   --s12: 48px;
   --s14: 56px;
 }
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+*{
+  box-sizing:border-box;
+  -webkit-tap-highlight-color:transparent;
+  -webkit-user-select:none;
+  -moz-user-select:none;
+  -ms-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
+}
+input, textarea{
+  -webkit-user-select:text;
+  -moz-user-select:text;
+  -ms-user-select:text;
+  user-select:text;
+}
 html,body{height:100%;}
 body{
   margin:0;
@@ -83,7 +96,6 @@ input,button,select,textarea{font-size:16px;}
   box-shadow:0 10px 24px -12px rgba(0,0,0,.7);
   transition:transform .12s ease, box-shadow .12s ease, filter .12s ease;
   display:inline-flex; align-items:center; justify-content:center; gap:var(--s2);
-  -webkit-user-select:none; user-select:none;
 }
 .btn:hover{filter:brightness(1.08);}
 .btn:active{transform:scale(.97);}
@@ -91,6 +103,7 @@ input,button,select,textarea{font-size:16px;}
 .btn:disabled:active{transform:none;}
 .btn-primary{background:linear-gradient(135deg,var(--brand),var(--brand2)); color:#fff; border-color:transparent; box-shadow:0 14px 30px -10px rgba(108,107,255,.5);}
 .btn-yellow{background:linear-gradient(135deg,var(--amber),#FFD98A); color:#2B1B02; border-color:transparent; box-shadow:0 14px 30px -10px rgba(255,184,77,.4);}
+.btn-ghost{background:transparent; box-shadow:none;}
 .btn-sm{padding:8px 14px; font-size:14px; border-radius:11px; box-shadow:0 8px 18px -10px rgba(0,0,0,.7);}
 .btn-block{width:100%;}
 .btn-icon{padding:9px 12px;}
@@ -295,7 +308,7 @@ canvas#board{
 
 @keyframes hmRise{from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);}}
 
-/* ==================== HOME (MINIMAL EDITORIAL) ==================== */
+/* ==================== HOME ==================== */
 .home-body{
   flex:1;
   display:grid; grid-template-columns:1.15fr .85fr;
@@ -351,7 +364,6 @@ canvas#board{
 }
 .home-desc b{color:var(--text); font-weight:700;}
 
-/* form side */
 .home-form-wrap{
   padding:var(--s14) var(--s10);
   display:flex; flex-direction:column; justify-content:center;
@@ -417,6 +429,22 @@ canvas#board{
 }
 .home-input--code::placeholder{letter-spacing:.5px; text-indent:0; font-weight:600; font-size:13.5px;}
 
+/* autocomplete hint overlay */
+.home-input-wrap{position:relative;}
+.home-input-hint{
+  position:absolute; inset:0;
+  padding:14px 16px;
+  display:flex; align-items:center;
+  justify-content:flex-start;
+  font-family:inherit; font-weight:600; font-size:15px;
+  pointer-events:none;
+  white-space:nowrap; overflow:hidden;
+  direction:rtl;
+  color:rgba(139,146,180,.5);
+  transition:opacity .18s;
+}
+.home-input-hint.is-hidden{opacity:0;}
+
 .home-cta{
   width:100%; padding:15px 20px; margin-top:var(--s1);
   background:var(--brand); border:none; border-radius:12px;
@@ -458,7 +486,7 @@ canvas#board{
 }
 .home-help-body b{color:var(--text); font-weight:700;}
 
-/* ==================== LOBBY (MINIMAL EDITORIAL) ==================== */
+/* ==================== LOBBY ==================== */
 .lobby-body{
   flex:1;
   display:grid; grid-template-columns:1.15fr .85fr;
@@ -548,9 +576,9 @@ canvas#board{
   display:flex; align-items:center; gap:var(--s3);
   padding:var(--s3) 0;
   border-bottom:1px solid rgba(255,255,255,.05);
-  animation:fadeUp .35s ease both;
 }
 .lobby-player:last-child{border-bottom:none;}
+.lobby-player.lobby-player--enter{animation:fadeUp .35s ease both;}
 .lobby-player .avatar{
   width:32px; height:32px; font-size:13px;
   border-width:1.5px;
@@ -670,6 +698,96 @@ function icon(name, size){
   return '<svg class="ic" width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICONS[name]||'')+'</svg>';
 }
 
+/* ============================= NAME HINTS (طنز) ============================= */
+const NAME_HINTS = {
+  /* ورزشکاران */
+  'علی': 'دایی',
+  'مهدی': 'طارمی',
+  'سردار': 'آزمون',
+  'سامان': 'قدوس',
+  'علیرضا': 'بیرانوند',
+  'کریم': 'انصاری‌فرد',
+  'جواد': 'نکونام',
+  'مسعود': 'شجاعی',
+  'رامین': 'رضاییان',
+  'مجید': 'حسینی',
+  'احمدرضا': 'عابدزاده',
+  'خداداد': 'عزیزی',
+  'وحید': 'امیری',
+  'اشکان': 'دژاگه',
+  'مرتضی': 'پورعلی‌گنجی',
+  'یحیی': 'گل‌محمدی',
+  /* بازیگران */
+  'رضا': 'کیانیان',
+  'پرویز': 'پرستویی',
+  'بهرام': 'رادان',
+  'نوید': 'محمدزاده',
+  'شهاب': 'حسینی',
+  'پیمان': 'معادی',
+  'حامد': 'بهداد',
+  'سعید': 'آقاخانی',
+  'محمدرضا': 'گلزار',
+  'ترانه': 'علیدوستی',
+  'هدیه': 'تهرانی',
+  'لیلا': 'حاتمی',
+  'باران': 'کوثری',
+  'نیکی': 'کریمی',
+  'ساره': 'بیات',
+  'مهناز': 'افشار',
+  'فاطمه': 'معتمدآریا',
+  'پگاه': 'آهنگرانی',
+  'امیر': 'جعفری',
+  'امیرحسین': 'رستمی',
+  /* مجریان */
+  'مهران': 'مدیری',
+  'رامبد': 'جوان',
+  'عادل': 'فردوسی‌پور',
+  /* خواننده‌ها */
+  'محسن': 'یگانه',
+  'همایون': 'شجریان',
+  'بنیامین': 'بهادری',
+  'شهرام': 'ناظری',
+  'سیاوش': 'قمیشی',
+  'ابراهیم': 'حامدی',
+  'فرهاد': 'مهرآبادی',
+  'شادمهر': 'عقیلی',
+  'ساسی': 'مانکن',
+  'محمد': 'نوری',
+  'حمید': 'هامیان',
+  /* تاریخی */
+  'کوروش': 'کبیر',
+  'آرش': 'کمانگیر',
+  'رستم': 'دستان',
+  'بابک': 'خرمدین',
+  'یعقوب': 'لیث',
+  'نادر': 'شاه',
+  'ستار': 'خان',
+  'باقر': 'خان',
+  'داریوش': 'اقبالی',
+  /* شاعران */
+  'سعدی': 'شیرازی',
+  'حافظ': 'شیرازی',
+  'فروغ': 'فرخزاد',
+  'پروین': 'اعتصامی',
+  'نیما': 'یوشیج',
+  'سهراب': 'سپهری',
+  'احمد': 'شاملو',
+  'هوشنگ': 'ابتهاج',
+  'ایرج': 'میرزا',
+  'منوچهر': 'آتشی',
+  'سیمین': 'دانشور',
+  'یدالله': 'رویایی',
+  /* کارگردان‌ها */
+  'اصغر': 'فرهادی',
+  'عباس': 'کیارستمی',
+  'رخشان': 'بنی‌اعتماد',
+  'تهمینه': 'میلانی',
+  'ناصر': 'تقوایی',
+  'کیومرث': 'پوراحمد',
+  'بهمن': 'قبادی',
+  'فریدون': 'مشیری'
+};
+
 /* ============================= UTIL ============================= */
 const $ = (sel,root)=> (root||document).querySelector(sel);
 const $$ = (sel,root)=> Array.from((root||document).querySelectorAll(sel));
@@ -693,6 +811,29 @@ function faNum(n){
 }
 const PALETTE = ['#FF6A5B','#2FB6A6','#7C83FD','#FFC857','#FF8FB1','#59C36A','#5AA9E6','#C77DFF'];
 function colorFor(idx){ return PALETTE[idx % PALETTE.length]; }
+
+/* reliable clipboard copy */
+function copyText(text){
+  if(navigator.clipboard && window.isSecureContext){
+    return navigator.clipboard.writeText(text).then(()=> true).catch(()=> legacyCopy(text));
+  }
+  return Promise.resolve(legacyCopy(text));
+}
+function legacyCopy(text){
+  try{
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:-9999px;opacity:0;pointer-events:none;';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  }catch(e){ return false; }
+}
 
 function topBar(mode){
   const logo = '<div class="topbar-logo"><span class="pencil">'+icon('pencil', 19)+'</span>خط<span class="g">خطی</span></div>';
@@ -750,6 +891,7 @@ const S = {
   localStrokes: [],
   remoteStrokes: {},
   lastTurnSeq: null,
+  lobbyAnimated: new Set()
 };
 
 /* ============================= ROUTER ============================= */
@@ -780,6 +922,7 @@ function onServerMessage(msg){
   switch(msg.type){
     case 'joined':
       S.code = msg.code; S.me.id = msg.playerId; S.isHost = msg.isHost;
+      S.lobbyAnimated = new Set();
       goTo('lobby');
       break;
     case 'errorMsg':
@@ -866,13 +1009,16 @@ function mountHome(){
 
           <div class="home-field">
             <label>نام شما</label>
-            <input class="home-input" id="nameInput" maxlength="16" placeholder="مثلاً نیلوفر" autocomplete="off">
+            <div class="home-input-wrap">
+              <input class="home-input" id="nameInput" maxlength="16" placeholder="مثلاً نیلوفر" autocomplete="off" spellcheck="false">
+              <div class="home-input-hint is-hidden" id="nameHint" aria-hidden="true"></div>
+            </div>
           </div>
 
           <div class="home-field" id="joinCodeField">
             <label>کد اتاق</label>
             <input class="home-input home-input--code" id="codeInput" maxlength="5" placeholder="کد اتاق"
-                   value="${escapeHtml(prefillCode)}">
+                   value="${escapeHtml(prefillCode)}" autocomplete="off" spellcheck="false">
           </div>
 
           <button class="home-cta" id="primaryActionBtn"></button>
@@ -899,6 +1045,22 @@ function mountHome(){
     btn.innerHTML = homeMode==='join'
       ? '<span>پیوستن به اتاق</span>' + ctaIcon
       : '<span>ساخت اتاق جدید</span>' + ctaIcon;
+    updateNameHint();
+  }
+
+  function updateNameHint(){
+    const input = $('#nameInput');
+    const hint = $('#nameHint');
+    if(!input || !hint) return;
+    const val = input.value;
+    const suggestion = NAME_HINTS[val];
+    if(!suggestion){
+      hint.classList.add('is-hidden');
+      hint.textContent = '';
+      return;
+    }
+    hint.innerHTML = '<span style="color:transparent">'+escapeHtml(val)+'</span><span> '+escapeHtml(suggestion)+'؟</span>';
+    hint.classList.remove('is-hidden');
   }
 
   $$('.home-tab').forEach(b=> b.onclick = ()=>{ homeMode = b.dataset.mode; applyHomeMode(); });
@@ -906,6 +1068,9 @@ function mountHome(){
 
   $('#primaryActionBtn').onclick = ()=>{ homeMode==='join' ? onJoinRoom() : onCreateRoom(); };
   $('#codeInput').addEventListener('input', e=>{ e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5); });
+  $('#nameInput').addEventListener('input', updateNameHint);
+  $('#nameInput').addEventListener('focus', updateNameHint);
+  $('#nameInput').addEventListener('blur', ()=>{ const h=$('#nameHint'); if(h) h.classList.add('is-hidden'); });
   $('#nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') (homeMode==='join' ? onJoinRoom() : onCreateRoom()); });
   $('#codeInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onJoinRoom(); });
   if(prefillCode) setTimeout(()=> $('#nameInput').focus(), 50);
@@ -978,10 +1143,12 @@ function mountLobby(){
   </div>`;
 
   $('#copyLinkBtn').onclick = ()=>{
-    const url = location.origin + '/?room=' + S.code;
-    if(navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(url).then(()=> toast('لینک کپی شد')).catch(()=> toast(url));
-    } else { toast(url); }
+    const cleanUrl = location.href.split(/[?#]/)[0];
+    const url = cleanUrl + '?room=' + S.code;
+    copyText(url).then(ok=>{
+      if(ok) toast('لینک کپی شد ✓');
+      else toast('کپی نشد — لینک: ' + url, 5000);
+    });
   };
   $('#startBtn').onclick = ()=> sendMsg('startGame', {});
   renderLobbyDynamic();
@@ -996,12 +1163,17 @@ function renderLobbyDynamic(){
 
   const listEl = $('#playerList');
   if(listEl){
-    listEl.innerHTML = players.map((p,i)=> `
-      <div class="lobby-player" style="animation-delay:${i*45}ms">
+    listEl.innerHTML = players.map((p,i)=>{
+      const isNew = !S.lobbyAnimated.has(p.id);
+      if(isNew) S.lobbyAnimated.add(p.id);
+      const cls = 'lobby-player' + (isNew ? ' lobby-player--enter' : '');
+      const style = isNew ? ` style="animation-delay:${i*45}ms"` : '';
+      return `<div class="${cls}"${style}>
         <div class="avatar" style="background:${colorFor(p.colorIdx)}">${escapeHtml((p.name||'?').slice(0,1))}</div>
         <span class="nm">${escapeHtml(p.name)}</span>
         ${p.id===S.meta.hostId ? '<span class="host-tag">'+icon('crown',11)+'<span>میزبان</span></span>' : ''}
-      </div>`).join('') || '<div class="empty-note" style="text-align:right; padding:var(--s3) 0;">در انتظار بازیکن‌ها...</div>';
+      </div>`;
+    }).join('') || '<div class="empty-note" style="text-align:right; padding:var(--s3) 0;">در انتظار بازیکن‌ها...</div>';
   }
 
   const roundsChips = $('#roundsChips');
