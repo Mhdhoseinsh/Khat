@@ -1016,20 +1016,20 @@ const SFX = {
       if(!AC) return;
       this.ctx = new AC();
       this.master = this.ctx.createGain();
-      this.master.gain.value = this.enabled ? 0.7 : 0;
+      this.master.gain.value = this.enabled ? 0.95 : 0;
       this.master.connect(this.ctx.destination);
       this.sfxGain = this.ctx.createGain();
-      this.sfxGain.gain.value = 0.55;
+      this.sfxGain.gain.value = 0.9;
       this.sfxGain.connect(this.master);
       this.musicGain = this.ctx.createGain();
-      this.musicGain.gain.value = 0.16;
+      this.musicGain.gain.value = 0.3;
       this.musicGain.connect(this.master);
     }catch(e){ this.ctx = null; }
   },
   resume(){ if(this.ctx && this.ctx.state === 'suspended'){ try{ this.ctx.resume(); }catch(e){} } },
   setEnabled(v){
     this.enabled = v;
-    if(this.master) this.master.gain.value = v ? 0.7 : 0;
+    if(this.master) this.master.gain.value = v ? 0.95 : 0;
     if(!v) this.stopMusic();
   },
 
@@ -1043,12 +1043,24 @@ const SFX = {
       o.frequency.setValueAtTime(freq, t);
       if(opt.to) o.frequency.exponentialRampToValueAtTime(Math.max(20,opt.to), t + dur);
       const g = this.ctx.createGain();
-      const v = opt.v != null ? opt.v : 0.18;
+      const v = opt.v != null ? opt.v : 0.28;
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(v, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(v, t + (opt.attack || 0.012));
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       o.connect(g); g.connect(this.sfxGain);
       o.start(t); o.stop(t + dur + 0.03);
+      /* thin detuned layer for extra body/sparkle */
+      if(opt.layer){
+        const o2 = this.ctx.createOscillator();
+        o2.type = opt.t || 'sine';
+        o2.frequency.setValueAtTime(freq * (opt.layerRatio || 2.005), t);
+        const g2 = this.ctx.createGain();
+        g2.gain.setValueAtTime(0.0001, t);
+        g2.gain.exponentialRampToValueAtTime(v * 0.5, t + (opt.attack || 0.012));
+        g2.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o2.connect(g2); g2.connect(this.sfxGain);
+        o2.start(t); o2.stop(t + dur + 0.03);
+      }
     }catch(e){}
   },
 
@@ -1068,86 +1080,121 @@ const SFX = {
       f.frequency.value = opt.freq || 1500;
       f.Q.value = opt.q || 1;
       const g = this.ctx.createGain();
-      g.gain.value = opt.v != null ? opt.v : 0.12;
+      g.gain.value = opt.v != null ? opt.v : 0.2;
       s.connect(f); f.connect(g); g.connect(this.sfxGain);
       s.start(t); s.stop(t + dur + 0.02);
     }catch(e){}
   },
 
-  /* ---- actual effects ---- */
-  click(){ this.boot(); this.resume(); this.tone(700, 0.05, {t:'square', v:0.1}); },
-  clickSoft(){ this.boot(); this.resume(); this.tone(520, 0.04, {t:'sine', v:0.08}); },
-  select(){ this.boot(); this.resume(); this.tone(520, 0.06, {t:'triangle', v:0.14}); this.tone(780, 0.08, {t:'triangle', v:0.12, d:0.05}); },
-  optionPick(){ this.boot(); this.resume(); this.tone(660, 0.05, {t:'triangle', v:0.14}); this.tone(990, 0.08, {t:'triangle', v:0.12, d:0.04}); },
-  pencil(){ this.boot(); this.resume(); this.noise(0.04, {filter:'highpass', freq:2800, v:0.05}); },
-  eraser(){ this.boot(); this.resume(); this.noise(0.07, {filter:'bandpass', freq:700, q:0.8, v:0.06}); },
+  /* ---- actual effects: punchier, layered, and louder than before ---- */
+  click(){ this.boot(); this.resume();
+    this.tone(880, 0.06, {t:'square', v:0.22, attack:0.004});
+    this.noise(0.02, {filter:'highpass', freq:4000, v:0.06});
+  },
+  clickSoft(){ this.boot(); this.resume(); this.tone(620, 0.05, {t:'sine', v:0.16}); },
+  select(){ this.boot(); this.resume();
+    this.tone(587.33, 0.08, {t:'triangle', v:0.24, layer:true});
+    this.tone(880, 0.1, {t:'triangle', v:0.2, d:0.05, layer:true});
+  },
+  optionPick(){ this.boot(); this.resume();
+    this.tone(740, 0.07, {t:'triangle', v:0.22});
+    this.tone(1108.73, 0.1, {t:'triangle', v:0.2, d:0.045});
+  },
+  pencil(){ this.boot(); this.resume(); this.noise(0.045, {filter:'highpass', freq:2800, v:0.09}); },
+  eraser(){ this.boot(); this.resume(); this.noise(0.08, {filter:'bandpass', freq:700, q:0.8, v:0.1}); },
   correct(){ this.boot(); this.resume();
-    [523.25, 659.25, 783.99, 1046.50].forEach((n,i)=> this.tone(n, 0.15, {t:'triangle', v:0.16, d:i*0.06}));
+    [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((n,i)=> this.tone(n, 0.18, {t:'triangle', v:0.3, d:i*0.055, layer:true}));
+    this.noise(0.12, {filter:'highpass', freq:6000, v:0.08, d:0.02});
   },
   wrong(){ this.boot(); this.resume();
-    this.tone(320, 0.12, {t:'sawtooth', v:0.14});
-    this.tone(200, 0.22, {t:'sawtooth', v:0.14, d:0.1, to:130});
+    this.tone(280, 0.14, {t:'sawtooth', v:0.26});
+    this.tone(180, 0.28, {t:'sawtooth', v:0.24, d:0.11, to:90});
+    this.noise(0.1, {filter:'lowpass', freq:400, v:0.1, d:0.1});
   },
-  tick(){ this.boot(); this.resume(); this.tone(1300, 0.035, {t:'square', v:0.11}); },
+  tick(){ this.boot(); this.resume(); this.tone(1300, 0.04, {t:'square', v:0.18}); },
   urgentTick(){ this.boot(); this.resume();
-    this.tone(1600, 0.045, {t:'square', v:0.14});
-    this.tone(1600, 0.045, {t:'square', v:0.14, d:0.065});
+    this.tone(1700, 0.05, {t:'square', v:0.24});
+    this.tone(1700, 0.05, {t:'square', v:0.24, d:0.07});
   },
   timeUp(){ this.boot(); this.resume();
-    this.tone(500, 0.14, {t:'sawtooth', v:0.16});
-    this.tone(380, 0.14, {t:'sawtooth', v:0.16, d:0.14});
-    this.tone(260, 0.4,  {t:'sawtooth', v:0.16, d:0.28});
+    this.tone(560, 0.16, {t:'sawtooth', v:0.28});
+    this.tone(420, 0.16, {t:'sawtooth', v:0.28, d:0.15});
+    this.tone(280, 0.5,  {t:'sawtooth', v:0.28, d:0.3, to:80});
   },
-  dialogIn(){ this.boot(); this.resume(); this.tone(400, 0.16, {t:'sine', v:0.1, to:900}); },
-  dialogOut(){ this.boot(); this.resume(); this.tone(900, 0.14, {t:'sine', v:0.1, to:420}); },
+  dialogIn(){ this.boot(); this.resume(); this.tone(400, 0.18, {t:'sine', v:0.18, to:1000}); },
+  dialogOut(){ this.boot(); this.resume(); this.tone(1000, 0.16, {t:'sine', v:0.16, to:380}); },
   yourTurn(){ this.boot(); this.resume();
-    [523.25, 659.25, 783.99, 1046.50].forEach((n,i)=> this.tone(n, 0.2, {t:'triangle', v:0.2, d:i*0.09}));
+    [523.25, 659.25, 783.99, 1046.50].forEach((n,i)=> this.tone(n, 0.22, {t:'triangle', v:0.34, d:i*0.09, layer:true}));
   },
   turnStart(){ this.boot(); this.resume();
-    [659.25, 783.99, 1046.50].forEach((n,i)=> this.tone(n, 0.15, {t:'triangle', v:0.15, d:i*0.07}));
+    [659.25, 783.99, 1046.50].forEach((n,i)=> this.tone(n, 0.16, {t:'triangle', v:0.26, d:i*0.07}));
   },
   gameStart(){ this.boot(); this.resume();
-    [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((n,i)=> this.tone(n, 0.22, {t:'triangle', v:0.2, d:i*0.08}));
+    [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((n,i)=> this.tone(n, 0.24, {t:'triangle', v:0.32, d:i*0.08, layer:true}));
+    this.tone(130.81, 0.5, {t:'sawtooth', v:0.14});
   },
   victory(){ this.boot(); this.resume();
-    [523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50, 1318.51, 1567.98]
-      .forEach((n,i)=> this.tone(n, 0.24, {t:'triangle', v:0.22, d:i*0.11}));
+    [523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50, 1318.51, 1567.98, 2093.00]
+      .forEach((n,i)=> this.tone(n, 0.26, {t:'triangle', v:0.36, d:i*0.1, layer:true}));
+    this.tone(130.81, 1.0, {t:'sawtooth', v:0.16, d:0.05});
   },
 
-  /* ---- ambient music: chill pentatonic arpeggio ---- */
+  /* ---- ambient music: upbeat, playful arcade loop with bass + hi-hat pulse ---- */
   startMusic(){
     this.boot(); this.resume();
     if(!this.ctx || this.musicTimer || !this.enabled) return;
-    const notes = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25];
-    const pattern = [0, 2, 4, 5, 4, 2, 3, 1, 2, 4, 3, 5];
+    const notes = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33];
+    const pattern = [0, 2, 4, 5, 4, 6, 4, 2, 3, 4, 5, 6, 4, 2, 1, 2];
+    const bassPattern = [0, 0, 3, 3, 4, 4, 3, 3];
     let step = 0;
     const play = ()=>{
       if(!this.enabled || !this.ctx) return;
       const n = notes[pattern[step % pattern.length]];
-      this.musicTone(n, 0.55, 0.055);
-      if(step % 4 === 0) this.musicTone(notes[0]/2, 1.4, 0.04);
+      this.musicTone(n, 0.28, 0.09);
+      if(step % 2 === 0){
+        const bn = notes[bassPattern[(step/2) % bassPattern.length]] / 4;
+        this.musicTone(bn, 0.5, 0.07, 'sawtooth');
+      }
+      if(step % 4 === 2) this.musicHat();
       step++;
     };
     play();
-    this.musicTimer = setInterval(play, 400);
+    this.musicTimer = setInterval(play, 220);
   },
   stopMusic(){
     if(this.musicTimer){ clearInterval(this.musicTimer); this.musicTimer = null; }
   },
-  musicTone(f, dur, v){
+  musicTone(f, dur, v, wave){
     if(!this.ctx || !this.enabled) return;
     try{
       const t = this.ctx.currentTime;
       const o = this.ctx.createOscillator();
-      o.type = 'sine'; o.frequency.value = f;
+      o.type = wave || 'triangle'; o.frequency.value = f;
       const g = this.ctx.createGain();
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(v, t + 0.06);
+      g.gain.exponentialRampToValueAtTime(v, t + 0.03);
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       const fl = this.ctx.createBiquadFilter();
-      fl.type = 'lowpass'; fl.frequency.value = 1800;
+      fl.type = 'lowpass'; fl.frequency.value = 2200;
       o.connect(fl); fl.connect(g); g.connect(this.musicGain);
       o.start(t); o.stop(t + dur + 0.05);
+    }catch(e){}
+  },
+  musicHat(){
+    if(!this.ctx || !this.enabled) return;
+    try{
+      const t = this.ctx.currentTime;
+      const sr = this.ctx.sampleRate;
+      const bl = Math.floor(sr * 0.03);
+      const b = this.ctx.createBuffer(1, bl, sr);
+      const d = b.getChannelData(0);
+      for(let i=0;i<bl;i++) d[i] = (Math.random()*2-1) * (1 - i/bl);
+      const s = this.ctx.createBufferSource(); s.buffer = b;
+      const f = this.ctx.createBiquadFilter();
+      f.type = 'highpass'; f.frequency.value = 6000;
+      const g = this.ctx.createGain(); g.gain.value = 0.06;
+      s.connect(f); f.connect(g); g.connect(this.musicGain);
+      s.start(t);
     }catch(e){}
   }
 };
