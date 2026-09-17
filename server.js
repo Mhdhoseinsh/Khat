@@ -143,7 +143,8 @@ function newRoom(code, hostId){
     players: new Map(), turnOrder: [], currentRound:1, currentTurnIndex:0,
     currentDrawerId:null, turnSeq:0, currentWord:null, currentOptions:[],
     usedWords: new Set(), turnStartAt:0, turnEndAt:0, guessedIds: new Set(), turnScores:{},
-    currentStrokes: [], turnTimer:null, advanceTimer:null, emptyCleanupTimer:null
+    currentStrokes: [], turnTimer:null, advanceTimer:null, emptyCleanupTimer:null,
+    answers: {}
   };
 }
 
@@ -179,6 +180,7 @@ function publicMeta(room, forId){
     turnEndAt: room.turnEndAt,
     guessedIds: Array.from(room.guessedIds||[]),
     turnScores: room.turnScores || {},
+    myAnswer: (room.answers && room.answers[forId]) ? room.answers[forId] : null,
     lastWordReveal: room.status==='turnEnd' ? room.currentWord : null
   };
 }
@@ -214,6 +216,7 @@ function beginTurn(room, drawerId){
   room.turnSeq += 1;
   room.guessedIds = new Set();
   room.turnScores = {};
+  room.answers = {};
   room.currentStrokes = [];
   room.turnStartAt = Date.now();
   room.turnEndAt = Date.now() + room.turnSeconds*1000;
@@ -256,8 +259,10 @@ function stepToNextEligible(room){
 
 function checkAllGuessedOrEnd(room){
   if(room.status !== 'drawing') return;
-  const guessers = activePlayers(room).filter(p=>p.id !== room.currentDrawerId).length;
-  if(guessers > 0 && room.guessedIds.size >= guessers) endTurn(room);
+  const guesserIds = activePlayers(room).filter(p=>p.id !== room.currentDrawerId).map(p=>p.id);
+  if(guesserIds.length === 0) return;
+  const allAnswered = guesserIds.every(id=> room.answers[id]); // guessed right or used their wrong attempt
+  if(allAnswered) endTurn(room);
 }
 
 function startGameForRoom(room){
@@ -347,7 +352,7 @@ function handleMessage(conn, msg){
   }
   else if(type === 'guess'){
     if(room.status !== 'drawing' || player.id === room.currentDrawerId) return;
-    if(room.guessedIds.has(player.id)) return;
+    if(room.answers[player.id]) return; // already used their one attempt this turn (right or wrong)
     const word = String(msg.word||'');
     if(!word || room.currentOptions.indexOf(word) === -1) return;
     const correct = normalizeFa(word) === normalizeFa(room.currentWord||'');
@@ -355,11 +360,16 @@ function handleMessage(conn, msg){
       const rank = room.guessedIds.size; // how many already guessed correctly before this one
       const points = rank === 0 ? 5 : rank === 1 ? 4 : 3;
       room.guessedIds.add(player.id);
+      room.answers[player.id] = {word, correct:true};
       room.turnScores[player.id] = points;
       player.score += points;
       const drawer = room.players.get(room.currentDrawerId);
       if(drawer){ drawer.score += 3; room.turnScores[drawer.id] = (room.turnScores[drawer.id]||0) + 3; }
       broadcastAll(room, 'chatMessage', {kind:'correct', name: player.name, points});
+      broadcastState(room);
+      checkAllGuessedOrEnd(room);
+    } else {
+      room.answers[player.id] = {word, correct:false};
       broadcastState(room);
       checkAllGuessedOrEnd(room);
     }
