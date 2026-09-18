@@ -1433,6 +1433,13 @@ connectWs();
 window.addEventListener('online', ()=>{ if(!wsReady) connectWs(); });
 document.addEventListener('visibilitychange', ()=>{
   if(document.visibilityState === 'visible' && !wsReady) connectWs();
+  if(document.visibilityState === 'hidden'){
+    if(SFX.musicTimer){ SFX._pausedTrack = SFX.currentTrack; SFX.stopMusic(); }
+    if(SFX.ctx && SFX.ctx.state === 'running'){ try{ SFX.ctx.suspend(); }catch(e){} }
+  } else if(document.visibilityState === 'visible'){
+    if(SFX.ctx && SFX.ctx.state === 'suspended' && SFX.enabled){ try{ SFX.ctx.resume(); }catch(e){} }
+    if(SFX._pausedTrack && SFX.enabled){ SFX.startMusic(SFX._pausedTrack); SFX._pausedTrack = null; }
+  }
 });
 
 /* ============================= STATE ============================= */
