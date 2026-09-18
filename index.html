@@ -1437,6 +1437,9 @@ function goTo(screen){
 }
 
 /* ============================= GLOBAL BUTTON CLICK SOUND ============================= */
+['pointerdown','touchstart','keydown'].forEach(ev=>{
+  document.addEventListener(ev, ()=>{ SFX.boot(); SFX.resume(); }, {once:true, passive:true});
+});
 document.addEventListener('click', (e)=>{
   const t = e.target;
   /* mute button - handled separately */
@@ -2275,8 +2278,11 @@ function renderFinalDynamic(){
     actions.innerHTML = `<button class="btn btn-ghost" id="exitBtn">خروج</button>`;
   }
   $('#exitBtn').onclick = ()=>{
+    sendMsg('leaveRoom', {});
+    clearSession();
+    S.code = null; S.me.id = null; S.isHost = false; S.meta = null;
     history.replaceState(null,'',location.pathname);
-    location.reload();
+    goTo('home');
   };
 }
 
