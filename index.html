@@ -970,11 +970,79 @@ canvas#board{
   animation:tdProgress 7s linear forwards;
 }
 @keyframes tdProgress{from{transform:scaleX(1);} to{transform:scaleX(0);}}
+
+/* ==================== RECONNECT DIALOG ==================== */
+.reconnect-overlay{
+  position:fixed; inset:0;
+  background:rgba(9,11,20,.92);
+  -webkit-backdrop-filter:blur(14px);
+  backdrop-filter:blur(14px);
+  z-index:2000;
+  display:none;
+  align-items:center; justify-content:center;
+  padding:20px;
+  animation:tdIn .25s ease;
+}
+.reconnect-overlay.show{display:flex;}
+.reconnect-card{
+  width:100%; max-width:380px;
+  background:linear-gradient(165deg, rgba(30,36,60,.98), rgba(15,19,35,.98));
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:24px;
+  padding:32px 26px 26px;
+  text-align:center;
+  box-shadow:0 50px 100px -30px rgba(0,0,0,.95), inset 0 1px 0 rgba(255,255,255,.06);
+  animation:tdPop .45s cubic-bezier(.34,1.56,.64,1);
+  position:relative; overflow:hidden;
+}
+.reconnect-card::before{
+  content:"";
+  position:absolute; top:0; left:0; right:0; height:3px;
+  background:linear-gradient(90deg, var(--coral), var(--amber), var(--coral));
+  background-size:200% 100%;
+  animation:rcGradient 2s linear infinite;
+}
+@keyframes rcGradient{0%{background-position:0% 0;} 100%{background-position:200% 0;}}
+.rc-icon-wrap{
+  width:72px; height:72px; border-radius:50%;
+  margin:0 auto 18px;
+  display:flex; align-items:center; justify-content:center;
+  background:radial-gradient(circle, rgba(255,84,112,.18), rgba(255,84,112,.02));
+  border:2px solid rgba(255,84,112,.35);
+  color:var(--coral);
+  animation:rcPulse 1.6s ease-in-out infinite;
+}
+.rc-icon-wrap.ready{
+  border-color:rgba(46,212,122,.45);
+  background:radial-gradient(circle, rgba(46,212,122,.2), rgba(46,212,122,.02));
+  color:var(--green);
+  animation:none;
+}
+@keyframes rcPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(255,84,112,.35);}
+  50%{box-shadow:0 0 0 14px rgba(255,84,112,0);}
+}
+.rc-icon-wrap svg{width:32px;height:32px;}
+.rc-title{font-size:19px; font-weight:900; color:#fff; margin-bottom:8px;}
+.rc-sub{font-size:13.5px; font-weight:600; color:var(--text-soft); line-height:1.8; margin-bottom:18px;}
+.rc-status{
+  display:inline-flex; align-items:center; gap:8px;
+  font-size:12.5px; font-weight:700; color:var(--amber);
+  background:rgba(255,184,77,.1); border:1px solid rgba(255,184,77,.25);
+  padding:7px 14px; border-radius:20px;
+  margin-bottom:22px;
+}
+.rc-status.ready{color:var(--green); background:rgba(46,212,122,.1); border-color:rgba(46,212,122,.3);}
+.rc-dot{width:7px; height:7px; border-radius:50%; background:var(--amber); animation:rcBlink 1s ease-in-out infinite;}
+.rc-status.ready .rc-dot{background:var(--green); animation:none;}
+@keyframes rcBlink{0%,100%{opacity:.3;} 50%{opacity:1;}}
+.rc-actions{display:flex; flex-direction:column; gap:10px;}
 </style>
 </head>
 <body>
 <div id="toast"></div>
 <div id="connBanner" class="conn-banner">اتصال قطع شد — در حال تلاش برای اتصال دوباره...</div>
+<div id="reconnectDialog" class="reconnect-overlay"></div>
 <div id="app"></div>
 <script>
 (function(){
@@ -997,7 +1065,8 @@ const ICONS = {
   copy:   '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
   chevronLeft: '<path d="M15 6l-6 6 6 6"/>',
   volume: '<path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
-  volumeOff: '<path d="M11 5 6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>'
+  volumeOff: '<path d="M11 5 6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>',
+  wifiOff: '<path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>'
 };
 function icon(name, size){
   size = size || 18;
@@ -1401,6 +1470,14 @@ function connectWs(){
       const m = pendingMsgs.shift();
       try{ ws.send(JSON.stringify(m)); }catch(e){}
     }
+    if(isReconnectDialogOpen()){
+      if(S.rcAutoResume){
+        S.rcAutoResume = false;
+        hideReconnectDialog();
+      } else {
+        setReconnectDialogReady();
+      }
+    }
   });
   ws.addEventListener('message', (ev)=>{
     let msg; try{ msg = JSON.parse(ev.data); }catch(e){ return; }
@@ -1409,7 +1486,7 @@ function connectWs(){
   ws.addEventListener('close', ()=>{
     wsReady = false;
     if(intentionalClose) return;
-    if(S.code && S.screen !== 'home') $('#connBanner')?.classList.add('show');
+    if(S.code && S.screen !== 'home') showReconnectDialog();
     reconnectAttempt++;
     const delay = Math.min(1000 * Math.pow(1.6, reconnectAttempt), 8000);
     reconnectTimer = setTimeout(connectWs, delay);
@@ -1428,11 +1505,94 @@ function sendMsg(type, data){
 }
 connectWs();
 
+/* ============================= RECONNECT DIALOG ============================= */
+function isReconnectDialogOpen(){
+  const dlg = $('#reconnectDialog');
+  return !!(dlg && dlg.classList.contains('show'));
+}
+function showReconnectDialog(){
+  const dlg = $('#reconnectDialog');
+  if(!dlg) return;
+  if(!dlg.classList.contains('show')){
+    dlg.innerHTML = `
+      <div class="reconnect-card">
+        <div class="rc-icon-wrap" id="rcIconWrap">${icon('wifiOff',30)}</div>
+        <div class="rc-title" id="rcTitle">اتصال قطع شد!</div>
+        <div class="rc-sub">نگران نباش، بازی همین‌جا منتظرته. وقتی آماده بودی برگرد و ادامه بده.</div>
+        <div class="rc-status" id="rcStatus"><span class="rc-dot"></span><span id="rcStatusTxt">در حال تلاش برای اتصال دوباره...</span></div>
+        <div class="rc-actions">
+          <button type="button" class="btn btn-primary btn-block" id="rcReturnBtn">${icon('link',16)} بازگشت به بازی</button>
+          <button type="button" class="btn btn-ghost btn-block" id="rcExitBtn">خروج از بازی</button>
+        </div>
+      </div>`;
+    SFX.dialogIn();
+    $('#rcReturnBtn').onclick = onReconnectReturnClick;
+    $('#rcExitBtn').onclick = ()=>{
+      intentionalClose = true;
+      clearTimeout(reconnectTimer);
+      try{ ws && ws.close(); }catch(e){}
+      clearSession();
+      S.code = null; S.me.id = null; S.isHost = false; S.meta = null; S.rcAutoResume = false;
+      hideReconnectDialog();
+      history.replaceState(null,'',location.pathname);
+      goTo('home');
+      intentionalClose = false;
+      connectWs();
+    };
+  }
+  if(wsReady) setReconnectDialogReady(); else setReconnectDialogWaiting();
+  dlg.classList.add('show');
+}
+function setReconnectDialogWaiting(){
+  const wrap = $('#rcIconWrap'), status = $('#rcStatus'), txt = $('#rcStatusTxt'), title = $('#rcTitle');
+  if(!wrap) return;
+  wrap.classList.remove('ready');
+  status.classList.remove('ready');
+  wrap.innerHTML = icon('wifiOff',30);
+  title.textContent = 'اتصال قطع شد!';
+  txt.textContent = 'در حال تلاش برای اتصال دوباره...';
+}
+function setReconnectDialogReady(){
+  const wrap = $('#rcIconWrap'), status = $('#rcStatus'), txt = $('#rcStatusTxt'), title = $('#rcTitle');
+  if(!wrap) return;
+  wrap.classList.add('ready');
+  status.classList.add('ready');
+  wrap.innerHTML = icon('check',30);
+  title.textContent = 'دوباره وصل شدی!';
+  txt.textContent = 'آماده‌ای برگردی به بازی';
+  SFX.clickSoft();
+}
+function onReconnectReturnClick(){
+  const btn = $('#rcReturnBtn');
+  if(wsReady){
+    hideReconnectDialog();
+    return;
+  }
+  S.rcAutoResume = true;
+  if(btn) btn.innerHTML = icon('clock',16) + ' در حال اتصال...';
+  setReconnectDialogWaiting();
+  connectWs();
+}
+function hideReconnectDialog(){
+  const dlg = $('#reconnectDialog');
+  if(!dlg) return;
+  dlg.classList.remove('show');
+  dlg.innerHTML = '';
+}
+
 /* Reconnect immediately when the browser/tab comes back online or foreground,
    instead of waiting for the backoff timer. */
-window.addEventListener('online', ()=>{ if(!wsReady) connectWs(); });
+window.addEventListener('online', ()=>{
+  if(!wsReady){
+    if(S.code && S.screen !== 'home') showReconnectDialog();
+    connectWs();
+  }
+});
 document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState === 'visible' && !wsReady) connectWs();
+  if(document.visibilityState === 'visible' && !wsReady){
+    if(S.code && S.screen !== 'home') showReconnectDialog();
+    connectWs();
+  }
   if(document.visibilityState === 'hidden'){
     if(SFX.musicTimer){ SFX._pausedTrack = SFX.currentTrack; SFX.stopMusic(); }
     if(SFX.ctx && SFX.ctx.state === 'running'){ try{ SFX.ctx.suspend(); }catch(e){} }
@@ -1453,7 +1613,8 @@ const S = {
   localStrokes: [], remoteStrokes: {},
   lastTurnSeq: null, lobbyAnimated: new Set(),
   pickedOption: null, dialogKey: null,
-  lastTickSec: null, lastMyAnswerKey: null
+  lastTickSec: null, lastMyAnswerKey: null,
+  rcAutoResume: false
 };
 
 /* ============================= ROUTER ============================= */
@@ -2062,11 +2223,14 @@ function updateGameDynamic(prevStatus, prevSeq){
 }
 
 /* ============================= TURN DIALOG ============================= */
+let turnDialogTimer = null;
 function updateTurnDialog(meta, players){
   const dlg = $('#turnDialog');
   if(!dlg) return;
 
   if(meta.status !== 'turnEnd'){
+    clearTimeout(turnDialogTimer);
+    turnDialogTimer = null;
     if(dlg.style.display !== 'none'){
       dlg.style.display = 'none';
       dlg.dataset.key = '';
@@ -2080,10 +2244,22 @@ function updateTurnDialog(meta, players){
     ? 'pre-game-' + (meta.nextDrawerId || '')
     : ('end-' + meta.turnSeq + '-' + (meta.nextDrawerId || ''));
 
-  if(dlg.dataset.key === key && dlg.style.display !== 'none') return;
+  if(dlg.dataset.key === key && (dlg.style.display !== 'none' || turnDialogTimer)) return;
   dlg.dataset.key = key;
   S.dialogKey = key;
+  clearTimeout(turnDialogTimer);
 
+  /* Give players ~3s to first see the green/red result on their avatar in the
+     player strip before the turn-end dialog covers the screen. */
+  turnDialogTimer = setTimeout(()=>{
+    turnDialogTimer = null;
+    renderTurnDialog(meta, players, isPreGame);
+  }, 3000);
+}
+
+function renderTurnDialog(meta, players, isPreGame){
+  const dlg = $('#turnDialog');
+  if(!dlg) return;
   const myId = S.me.id;
   const nextDrawerId = meta.nextDrawerId;
   const nextDrawer = players[nextDrawerId];
@@ -2139,7 +2315,7 @@ function updateTurnDialog(meta, players){
     <div class="turn-dialog-card">
       <div class="td-title">${escapeHtml(title)}</div>
       <div class="td-body">${bodyHTML}</div>
-      <div class="td-progress"><div class="td-progress-fill"></div></div>
+      <div class="td-progress"><div class="td-progress-fill" style="animation-duration:4s;"></div></div>
     </div>
   `;
   dlg.style.display = 'flex';

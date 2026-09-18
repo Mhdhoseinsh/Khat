@@ -146,6 +146,11 @@ function newRoom(code, hostId){
 }
 
 function activePlayers(room){ return Array.from(room.players.values()).filter(p=>p.connected); }
+function nextFreeColorIdx(room){
+  const used = new Set(Array.from(room.players.values()).map(p=>p.colorIdx));
+  for(let i=0;i<8;i++) if(!used.has(i)) return i;
+  return room.players.size;
+}
 
 function send(player, type, data){
   if(!player || !player.connected || !player.socket) return;
@@ -293,9 +298,16 @@ function endTurn(room){
 
 function advanceTurn(room){
   if(room.status !== 'turnEnd') return;
-  const info = room.nextTurnInfo;
+  let info = room.nextTurnInfo;
   room.nextTurnInfo = null;
   room.isPreGame = false;
+  if(info){
+    const p = room.players.get(info.drawerId);
+    if(!p || !p.connected){
+      if(info.word) room.usedWords.delete(info.word);
+      info = computeNextTurnInfo(room);
+    }
+  }
   if(!info){ room.status = 'final'; broadcastState(room); return; }
   room.currentTurnIndex = info.turnIndex;
   room.currentRound = info.round;
@@ -305,7 +317,7 @@ function advanceTurn(room){
 function checkAllGuessedOrEnd(room){
   if(room.status !== 'drawing') return;
   const guesserIds = activePlayers(room).filter(p=>p.id !== room.currentDrawerId).map(p=>p.id);
-  if(guesserIds.length === 0) return;
+  if(guesserIds.length === 0){ endTurn(room); return; }
   const allAnswered = guesserIds.every(id=> room.answers[id]);
   if(allAnswered) endTurn(room);
 }
@@ -351,7 +363,7 @@ function handleMessage(conn, msg){
     if(room.status !== 'lobby'){ send(tempPlayer,'errorMsg',{message:'این بازی شروع شده؛ برای دور بعد صبر کن'}); return; }
     if(activePlayers(room).length >= 8){ send(tempPlayer,'errorMsg',{message:'اتاق پر است (حداکثر ۸ بازیکن)'}); return; }
     const id = genId('p');
-    const colorIdx = room.players.size;
+    const colorIdx = nextFreeColorIdx(room);
     room.players.set(id, {id, name: String(msg.name||'بازیکن').slice(0,16) || 'بازیکن', colorIdx, score:0, connected:true, socket: conn.socket});
     conn.roomCode = code; conn.playerId = id;
     send(room.players.get(id), 'joined', {code, playerId:id, isHost:false});
@@ -438,6 +450,10 @@ function handleMessage(conn, msg){
     }
     if(room.status === 'drawing' && room.currentDrawerId === player.id){
       endTurn(room);
+    } else if(room.status === 'turnEnd' && room.nextTurnInfo && room.nextTurnInfo.drawerId === player.id){
+      if(room.nextTurnInfo.word) room.usedWords.delete(room.nextTurnInfo.word);
+      room.nextTurnInfo = computeNextTurnInfo(room);
+      broadcastState(room);
     } else {
       checkAllGuessedOrEnd(room);
       broadcastState(room);
@@ -457,7 +473,7 @@ function handleDisconnect(conn){
   const room = rooms.get(conn.roomCode);
   if(!room) return;
   const player = room.players.get(conn.playerId);
-  if(!player) return;
+  if(!player || !player.connected) return;
   player.connected = false;
   player.socket = null;
 
@@ -491,6 +507,7 @@ const server = http.createServer((req, res)=>{
   res.end(indexHtml);
 });
 
+const liveConns = new Set();
 server.on('upgrade', (req, socket)=>{
   if((req.headers['upgrade']||'').toLowerCase() !== 'websocket'){ socket.destroy(); return; }
   const key = req.headers['sec-websocket-key'];
@@ -504,26 +521,35 @@ server.on('upgrade', (req, socket)=>{
     '', ''
   ].join('\r\n'));
 
-  const conn = { socket, roomCode:null, playerId:null };
+  const conn = { socket, roomCode:null, playerId:null, lastPong: Date.now() };
+  liveConns.add(conn);
   const feed = makeFrameParser((opcode, payload)=>{
     if(opcode === 0x8){ try{ socket.end(); }catch(e){} return; }
     if(opcode === 0x9){ sendPong(socket, payload); return; }
-    if(opcode === 0xA){ return; }
+    if(opcode === 0xA){ conn.lastPong = Date.now(); return; }
     if(opcode === 0x1){
       let msg;
       try{ msg = JSON.parse(payload.toString('utf8')); }catch(e){ return; }
+      conn.lastPong = Date.now();
       try{ handleMessage(conn, msg); }catch(e){ console.error('handleMessage error:', e); }
     }
   });
   socket.on('data', feed);
-  socket.on('close', ()=>{ try{ handleDisconnect(conn); }catch(e){} });
-  socket.on('error', ()=>{ try{ handleDisconnect(conn); }catch(e){} });
+  socket.on('close', ()=>{ liveConns.delete(conn); try{ handleDisconnect(conn); }catch(e){} });
+  socket.on('error', ()=>{ liveConns.delete(conn); try{ handleDisconnect(conn); }catch(e){} });
   socket.setTimeout(0);
 });
 
 setInterval(()=>{
-  rooms.forEach(room=>{
-    room.players.forEach(p=>{ if(p.connected && p.socket) sendPing(p.socket); });
+  const now = Date.now();
+  liveConns.forEach(conn=>{
+    if(now - conn.lastPong > 70000){
+      liveConns.delete(conn);
+      try{ conn.socket.destroy(); }catch(e){}
+      try{ handleDisconnect(conn); }catch(e){}
+    } else {
+      sendPing(conn.socket);
+    }
   });
 }, 25000);
 
