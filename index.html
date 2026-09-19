@@ -335,23 +335,6 @@ input,button,select,textarea{font-size:16px;}
 .hint-typed{ color:transparent; }
 .hint-rest{ color:rgba(139,146,180,.6); }
 
-.visibility-toggle{display:flex; gap:var(--s3);}
-.vis-btn{
-  flex:1; padding:12px 10px;
-  background:rgba(255,255,255,.02);
-  border:1px solid rgba(255,255,255,.1);
-  border-radius:12px;
-  color:var(--text-soft);
-  font-family:inherit; font-weight:700; font-size:13.5px;
-  cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
-  transition:border-color .2s, background .2s, color .2s;
-}
-.vis-btn:hover{border-color:rgba(255,255,255,.2); color:var(--text);}
-.vis-btn.active{
-  color:#fff; border-color:var(--brand);
-  background:rgba(108,107,255,.14);
-}
-.visibility-hint{margin-top:var(--s3); font-size:11.5px; font-weight:600; color:var(--text-soft); line-height:1.7;}
 .vis-badge{
   padding:5px 10px; border-radius:8px;
   font-size:11px; font-weight:800;
@@ -1810,9 +1793,7 @@ function onServerMessage(msg){
 
 /* ============================= HOME ============================= */
 let homeMode = 'create';
-let createIsPublic = false;
 function mountHome(){
-  createIsPublic = false;
   const params = new URLSearchParams(location.search);
   const prefillCode = (params.get('room')||'').toUpperCase().slice(0,5);
   homeMode = prefillCode ? 'join' : 'create';
@@ -1841,21 +1822,9 @@ function mountHome(){
             <button type="button" class="home-tab" data-mode="join">پیوستن</button>
           </div>
 
-          <div class="home-field">
-            <label>نام شما</label>
-            <div class="home-input-wrap">
-              <input class="home-input" id="nameInput" maxlength="32" placeholder="مثلاً نیلوفر" autocomplete="off" spellcheck="false">
-              <div class="home-input-hint is-hidden" id="nameHint" aria-hidden="true"></div>
-            </div>
-          </div>
-
-          <div class="home-field" id="visibilityField">
-            <label>نوع اتاق</label>
-            <div class="visibility-toggle">
-              <button type="button" class="vis-btn active" data-vis="private">${icon('lock',15)} خصوصی</button>
-              <button type="button" class="vis-btn" data-vis="public">${icon('globe',15)} عمومی</button>
-            </div>
-            <div class="visibility-hint" id="visibilityHint">فقط کسانی که کد اتاق را داشته باشند می‌توانند بپیوندند.</div>
+          <div class="home-field" id="roomNameField">
+            <label>نام اتاق</label>
+            <input class="home-input" id="roomNameInput" maxlength="24" placeholder="مثلاً جمع دوستان" autocomplete="off" spellcheck="false">
           </div>
 
           <div class="home-field" id="joinCodeField">
@@ -1891,14 +1860,13 @@ function mountHome(){
 
   function applyHomeMode(){
     $$('.home-tab').forEach(b=> b.classList.toggle('active', b.dataset.mode===homeMode));
-    $('#visibilityField').style.display = homeMode==='create' ? '' : 'none';
+    $('#roomNameField').style.display = homeMode==='create' ? '' : 'none';
     $('#joinCodeField').style.display = homeMode==='join' ? '' : 'none';
     $('#publicRoomsField').style.display = homeMode==='join' ? '' : 'none';
     const btn = $('#primaryActionBtn');
     btn.innerHTML = homeMode==='join'
       ? '<span>پیوستن به اتاق</span>' + ctaIcon
       : '<span>ساخت اتاق جدید</span>' + ctaIcon;
-    updateNameHint();
     if(homeMode === 'join') requestPublicRooms();
   }
   function requestPublicRooms(){
@@ -1907,52 +1875,14 @@ function mountHome(){
     sendMsg('listPublicRooms', {});
   }
   renderPublicRoomsList();
-  $$('.vis-btn').forEach(b=> b.onclick = ()=>{
-    createIsPublic = b.dataset.vis === 'public';
-    $$('.vis-btn').forEach(x=> x.classList.toggle('active', x===b));
-    $('#visibilityHint').textContent = createIsPublic
-      ? 'اتاق در لیست عمومی «پیوستن» به همه نشان داده می‌شود و هرکسی می‌تواند با یک کلیک بپیوندد.'
-      : 'فقط کسانی که کد اتاق را داشته باشند می‌توانند بپیوندند.';
-    SFX.clickSoft();
-  });
   $('#publicRoomsRefreshBtn').onclick = requestPublicRooms;
-  function updateNameHint(){
-    const input = $('#nameInput');
-    const hint = $('#nameHint');
-    if(!input || !hint) return;
-    clearTimeout(updateNameHint._t);
-    hint.classList.add('is-hidden');
-    const val = input.value;
-    if(!val){ hint.innerHTML = ''; return; }
-    let match = null;
-    for(let i = 0; i < NAME_LIST.length; i++){
-      const name = NAME_LIST[i];
-      if(name.length > val.length && name.indexOf(val) === 0){ match = name; break; }
-    }
-    if(!match){ hint.innerHTML = ''; return; }
-    const nextChar = match.charAt(val.length);
-    const isWordBreak = nextChar === ' ';
-    const remainderRaw = match.substring(val.length);
-    const remainderDisplay = isWordBreak ? remainderRaw.substring(1) : remainderRaw;
-    const sep = isWordBreak ? ' ' : '';
-    updateNameHint._t = setTimeout(()=>{
-      if(input.value !== val) return;
-      hint.innerHTML =
-        '<span class="hint-typed">' + escapeHtml(val) + '</span>' +
-        '<span class="hint-rest">' + escapeHtml(sep + remainderDisplay) + '؟</span>';
-      hint.classList.remove('is-hidden');
-    }, 200);
-  }
   $$('.home-tab').forEach(b=> b.onclick = ()=>{ homeMode = b.dataset.mode; applyHomeMode(); });
   applyHomeMode();
   $('#primaryActionBtn').onclick = ()=>{ homeMode==='join' ? onJoinRoom() : onCreateRoom(); };
   $('#codeInput').addEventListener('input', e=>{ e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5); });
-  $('#nameInput').addEventListener('input', updateNameHint);
-  $('#nameInput').addEventListener('focus', updateNameHint);
-  $('#nameInput').addEventListener('blur', ()=>{ const h=$('#nameHint'); if(h) h.classList.add('is-hidden'); });
-  $('#nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') (homeMode==='join' ? onJoinRoom() : onCreateRoom()); });
+  $('#roomNameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onCreateRoom(); });
   $('#codeInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onJoinRoom(); });
-  if(prefillCode) setTimeout(()=> $('#nameInput').focus(), 50);
+  if(prefillCode) setTimeout(()=> $('#codeInput').focus(), 50);
 }
 
 function renderPublicRoomsList(){
@@ -1968,7 +1898,7 @@ function renderPublicRoomsList(){
   el.innerHTML = list.map(r => `
     <div class="public-room-card">
       <div class="public-room-info">
-        <span class="public-room-host">${escapeHtml(r.hostName)}</span>
+        <span class="public-room-host">${escapeHtml(r.roomName)}</span>
         <span class="public-room-count">${r.playerCount}/8 نفر · کد ${escapeHtml(r.code)}</span>
       </div>
       <button type="button" class="public-room-join" data-code="${escapeHtml(r.code)}">پیوستن</button>
@@ -1980,16 +1910,13 @@ function renderPublicRoomsList(){
 }
 
 function onCreateRoom(){
-  const name = ($('#nameInput').value||'').trim().slice(0,16) || 'بازیکن';
-  S.me.name = name;
-  sendMsg('createRoom', {name, isPublic: createIsPublic});
+  const roomName = ($('#roomNameInput').value||'').trim().slice(0,24);
+  sendMsg('createRoom', {roomName});
 }
 function onJoinRoom(codeOverride){
-  const name = ($('#nameInput').value||'').trim().slice(0,16) || 'بازیکن';
   const code = (codeOverride || $('#codeInput').value || '').trim().toUpperCase();
   if(code.length < 4){ toast('کد اتاق را کامل وارد کن'); return; }
-  S.me.name = name;
-  sendMsg('joinRoom', {name, code});
+  sendMsg('joinRoom', {code});
 }
 
 /* ============================= LOBBY ============================= */
@@ -2016,6 +1943,17 @@ function mountLobby(){
 
       <section class="lobby-right">
         <div class="lobby-form">
+          <div class="lobby-field">
+            <label>نام شما</label>
+            <div class="home-input-wrap">
+              <input class="home-input" id="myNameInput" maxlength="16" placeholder="اسمت رو وارد کن" autocomplete="off" spellcheck="false">
+              <div class="home-input-hint is-hidden" id="myNameHint" aria-hidden="true"></div>
+            </div>
+          </div>
+          <div class="lobby-field">
+            <label>نوع اتاق</label>
+            <div class="lobby-chips" id="visChips"></div>
+          </div>
           <div class="lobby-field">
             <label>تعداد راند</label>
             <div class="lobby-chips" id="roundsChips"></div>
@@ -2044,6 +1982,43 @@ function mountLobby(){
       else toast('کپی نشد');
     });
   };
+  const myNameInput = $('#myNameInput');
+  const myNameHint = $('#myNameHint');
+  const myName = S.players[S.me.id];
+  myNameInput.value = myName ? myName.name : '';
+  function updateMyNameHint(){
+    clearTimeout(updateMyNameHint._t);
+    myNameHint.classList.add('is-hidden');
+    const val = myNameInput.value;
+    if(!val){ myNameHint.innerHTML = ''; return; }
+    let match = null;
+    for(let i = 0; i < NAME_LIST.length; i++){
+      const name = NAME_LIST[i];
+      if(name.length > val.length && name.indexOf(val) === 0){ match = name; break; }
+    }
+    if(!match){ myNameHint.innerHTML = ''; return; }
+    const nextChar = match.charAt(val.length);
+    const isWordBreak = nextChar === ' ';
+    const remainderRaw = match.substring(val.length);
+    const remainderDisplay = isWordBreak ? remainderRaw.substring(1) : remainderRaw;
+    const sep = isWordBreak ? ' ' : '';
+    updateMyNameHint._t = setTimeout(()=>{
+      if(myNameInput.value !== val) return;
+      myNameHint.innerHTML =
+        '<span class="hint-typed">' + escapeHtml(val) + '</span>' +
+        '<span class="hint-rest">' + escapeHtml(sep + remainderDisplay) + '؟</span>';
+      myNameHint.classList.remove('is-hidden');
+    }, 200);
+  }
+  function submitMyName(){
+    const val = myNameInput.value.trim().slice(0,16);
+    if(!val) return;
+    sendMsg('updateName', {name: val});
+  }
+  myNameInput.addEventListener('input', updateMyNameHint);
+  myNameInput.addEventListener('focus', updateMyNameHint);
+  myNameInput.addEventListener('blur', ()=>{ myNameHint.classList.add('is-hidden'); submitMyName(); });
+  myNameInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); myNameInput.blur(); } });
   $('#startBtn').onclick = ()=> sendMsg('startGame', {});
   $('#leaveRoomBtn').onclick = ()=>{
     sendMsg('leaveRoom', {});
@@ -2090,6 +2065,15 @@ function renderLobbyDynamic(){
     }).join('') || '<div class="empty-note" style="text-align:right; padding:var(--s3) 0;">در انتظار بازیکن‌ها...</div>';
   }
 
+  const visChips = $('#visChips');
+  if(visChips){
+    const isPub = !!S.meta.isPublic;
+    visChips.innerHTML = `
+      <button class="lobby-chip ${!isPub?'active':''} ${S.isHost?'':'readonly'}" data-vis="0">${icon('lock',13)} خصوصی</button>
+      <button class="lobby-chip ${isPub?'active':''} ${S.isHost?'':'readonly'}" data-vis="1">${icon('globe',13)} عمومی</button>
+    `;
+  }
+
   const roundsChips = $('#roundsChips');
   if(roundsChips){
     roundsChips.innerHTML = [1,2,3].map(r=>
@@ -2107,6 +2091,7 @@ function renderLobbyDynamic(){
   const startBtn = $('#startBtn');
   const hostHint = $('#hostHint');
   if(S.isHost){
+    $$('.lobby-chip[data-vis]').forEach(b=> b.onclick = ()=> sendMsg('updateSettings', {isPublic: b.dataset.vis === '1'}));
     $$('.lobby-chip[data-r]').forEach(b=> b.onclick = ()=> sendMsg('updateSettings', {rounds: parseInt(b.dataset.r)}));
     $$('.lobby-chip[data-t]').forEach(b=> b.onclick = ()=> sendMsg('updateSettings', {turnSeconds: parseInt(b.dataset.t)}));
     if(startBtn){ startBtn.style.display = ''; startBtn.disabled = players.length < 2; }
