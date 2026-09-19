@@ -194,6 +194,24 @@ input,button,select,textarea{font-size:16px;}
 .mute-btn.muted{color:var(--coral); border-color:rgba(255,84,112,.3); background:rgba(255,84,112,.08);}
 .mute-btn svg{width:17px; height:17px;}
 
+/* ---- FORFEIT BUTTON ---- */
+.forfeit-btn{
+  display:flex; align-items:center; gap:6px;
+  height:36px; padding:0 12px;
+  border-radius:10px;
+  background:rgba(255,84,112,.08);
+  border:1px solid rgba(255,84,112,.25);
+  color:#FF8A9B;
+  font-family:inherit; font-weight:700; font-size:12px;
+  cursor:pointer;
+  transition:background .2s, border-color .2s, transform .12s;
+  flex-shrink:0;
+}
+.forfeit-btn:hover{background:rgba(255,84,112,.16); border-color:rgba(255,84,112,.4);}
+.forfeit-btn:active{transform:scale(.95);}
+.forfeit-btn svg{width:15px; height:15px;}
+@media (max-width:420px){ .forfeit-btn span{display:none;} .forfeit-btn{padding:0 9px;} }
+
 @keyframes hmRise{from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);}}
 
 /* ==================== HOME ==================== */
@@ -580,6 +598,33 @@ input,button,select,textarea{font-size:16px;}
 .lobby-cta:disabled{opacity:.35; cursor:not-allowed;}
 .lobby-cta svg{transition:transform .25s;}
 .lobby-cta:hover:not(:disabled) svg{transform:translateX(-3px);}
+
+.lobby-ready-btn{
+  width:100%; padding:13px 18px;
+  background:rgba(255,255,255,.03); border:1.5px solid rgba(255,255,255,.14); border-radius:12px;
+  color:var(--text-soft);
+  font-family:inherit; font-weight:800; font-size:14.5px;
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:var(--s3);
+  transition:background .2s, border-color .2s, color .2s, transform .12s;
+}
+.lobby-ready-btn:hover{border-color:rgba(255,255,255,.28); color:var(--text);}
+.lobby-ready-btn:active{transform:scale(.985);}
+.lobby-ready-btn.is-ready{
+  background:rgba(46,212,122,.14); border-color:rgba(46,212,122,.5); color:var(--green);
+}
+.lobby-ready-countdown{
+  margin-top:var(--s3); padding:10px 14px;
+  background:rgba(255,184,77,.1); border:1px solid rgba(255,184,77,.3); border-radius:10px;
+  color:var(--amber); font-size:12.5px; font-weight:700; text-align:center;
+}
+.lobby-ready-countdown.is-hidden{display:none;}
+.ready-check{
+  width:16px; height:16px; border-radius:50%;
+  display:inline-flex; align-items:center; justify-content:center;
+  background:var(--green); color:#04140F; flex-shrink:0;
+}
+.ready-check svg{width:10px; height:10px;}
 
 .lobby-hint{
   margin-top:var(--s4);
@@ -1112,6 +1157,7 @@ const ICONS = {
   wifiOff: '<path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>',
   refreshCw: '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
   lock: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  logOut: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
   globe: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>'
 };
 function icon(name, size){
@@ -1472,9 +1518,11 @@ function headerHTML(withRoom){
   const logo = '<div class="home-brand"><span class="home-brand-mark">'+icon('pencil',16)+'</span><span>خط‌خطی</span></div>';
   const mute = '<button class="mute-btn'+(SFX.enabled?'':' muted')+'" id="muteBtn" title="صدا">'+icon(SFX.enabled?'volume':'volumeOff',17)+'</button>';
   if(withRoom){
+    const forfeit = '<button class="forfeit-btn" id="forfeitBtn" title="انصراف از بازی">'+icon('logOut',16)+'<span>انصراف</span></button>';
     return '<header class="home-header game-header">'+logo+
       '<div class="game-header-right">'+
         '<span class="game-room-tag">اتاق <b>'+escapeHtml(S.code||'')+'</b></span>'+
+        forfeit+
         mute+
       '</div>'+
     '</header>';
@@ -1722,6 +1770,17 @@ document.addEventListener('click', (e)=>{
   }
 });
 
+/* forfeit (leave the game entirely from the game screen) */
+document.addEventListener('click', (e)=>{
+  const fb = e.target.closest('#forfeitBtn');
+  if(!fb) return;
+  if(!confirm('از بازی انصراف می‌دهی و از اتاق خارج می‌شوی. مطمئنی؟')) return;
+  sendMsg('leaveRoom', {});
+  clearSession();
+  S.code = null; S.me.id = null; S.isHost = false; S.meta = null;
+  goTo('home');
+});
+
 /* ============================= SERVER MESSAGE DISPATCH ============================= */
 function onServerMessage(msg){
   switch(msg.type){
@@ -1962,6 +2021,11 @@ function mountLobby(){
             <label>زمان هر نوبت</label>
             <div class="lobby-chips" id="timeChips"></div>
           </div>
+          <div class="lobby-field">
+            <label>وضعیت شما</label>
+            <button class="lobby-ready-btn" id="readyBtn">${icon('check',16)}<span id="readyBtnLabel">آماده‌ام</span></button>
+            <div class="lobby-ready-countdown is-hidden" id="readyCountdown"></div>
+          </div>
           <button class="lobby-cta" id="startBtn">
             <span>شروع بازی</span>
             ${icon('chevronLeft',16)}
@@ -2020,6 +2084,11 @@ function mountLobby(){
   myNameInput.addEventListener('blur', ()=>{ myNameHint.classList.add('is-hidden'); submitMyName(); });
   myNameInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); myNameInput.blur(); } });
   $('#startBtn').onclick = ()=> sendMsg('startGame', {});
+  $('#readyBtn').onclick = ()=>{
+    const me = S.players[S.me.id];
+    const nowReady = !(me && me.ready);
+    sendMsg('setReady', {ready: nowReady});
+  };
   $('#leaveRoomBtn').onclick = ()=>{
     sendMsg('leaveRoom', {});
     clearSession();
@@ -2034,6 +2103,25 @@ function mountLobby(){
     goTo('home');
   };
   renderLobbyDynamic();
+  startLobbyCountdownLoop();
+}
+
+function startLobbyCountdownLoop(){
+  clearInterval(startLobbyCountdownLoop._t);
+  startLobbyCountdownLoop._t = setInterval(()=>{
+    if(S.screen !== 'lobby'){ clearInterval(startLobbyCountdownLoop._t); return; }
+    updateReadyCountdownDisplay();
+  }, 250);
+}
+function updateReadyCountdownDisplay(){
+  const el = $('#readyCountdown');
+  if(!el || !S.meta) return;
+  const endAt = S.meta.readyCountdownEndAt || 0;
+  if(!endAt){ el.classList.add('is-hidden'); return; }
+  const left = Math.max(0, endAt - Date.now());
+  const secs = Math.ceil(left/1000);
+  el.classList.remove('is-hidden');
+  el.textContent = 'بیشتر از نصف بازیکن‌ها آماده‌اند — بازی تا ' + faNum(secs) + ' ثانیه دیگر شروع می‌شود';
 }
 
 function renderLobbyDynamic(){
@@ -2060,10 +2148,21 @@ function renderLobbyDynamic(){
       return `<div class="${cls}"${style}>
         <div class="avatar" style="background:${colorFor(p.colorIdx)}">${escapeHtml((p.name||'?').slice(0,1))}</div>
         <span class="nm">${escapeHtml(p.name)}</span>
+        ${p.ready ? '<span class="ready-check" title="آماده">'+icon('check',10)+'</span>' : ''}
         ${p.id===S.meta.hostId ? '<span class="host-tag">'+icon('crown',11)+'<span>میزبان</span></span>' : ''}
       </div>`;
     }).join('') || '<div class="empty-note" style="text-align:right; padding:var(--s3) 0;">در انتظار بازیکن‌ها...</div>';
   }
+
+  const readyBtn = $('#readyBtn');
+  const readyBtnLabel = $('#readyBtnLabel');
+  const me = S.players[S.me.id];
+  if(readyBtn){
+    const isReady = !!(me && me.ready);
+    readyBtn.classList.toggle('is-ready', isReady);
+    if(readyBtnLabel) readyBtnLabel.textContent = isReady ? 'آماده‌ای! (لغو آمادگی)' : 'آماده‌ام';
+  }
+  updateReadyCountdownDisplay();
 
   const visChips = $('#visChips');
   if(visChips){

@@ -7,6 +7,7 @@ const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
 const ADVANCE_DELAY = process.env.FAST_TEST === '1' ? 300 : 7000; // ۷ ثانیه دیالوگ
+const READY_COUNTDOWN_MS = process.env.FAST_TEST === '1' ? 800 : 10000; // ۱۰ ثانیه شمارش معکوس آماده‌باش
 
 /* ============================= static file ============================= */
 const indexPath = path.join(__dirname, 'index.html');
@@ -191,7 +192,8 @@ function newRoom(code, hostId){
     currentDrawerId:null, turnSeq:0, currentWord:null, currentOptions:[],
     usedWords: new Set(), turnStartAt:0, turnEndAt:0, guessedIds: new Set(), turnScores:{},
     currentStrokes: [], turnTimer:null, advanceTimer:null, emptyCleanupTimer:null,
-    answers: {}, nextTurnInfo: null, isPreGame: false, isPublic: false, name: ''
+    answers: {}, nextTurnInfo: null, isPreGame: false, isPublic: false, name: '',
+    readyCountdownEndAt: 0, readyCountdownTimer: null
   };
 }
 
@@ -215,7 +217,7 @@ function broadcastExcept(room, type, data, exceptId){
 
 function publicPlayers(room){
   const out = {};
-  room.players.forEach((p,id)=>{ out[id] = {id:p.id, name:p.name, colorIdx:p.colorIdx, score:p.score, connected:p.connected}; });
+  room.players.forEach((p,id)=>{ out[id] = {id:p.id, name:p.name, colorIdx:p.colorIdx, score:p.score, connected:p.connected, ready: !!p.ready}; });
   return out;
 }
 function publicMeta(room, forId){
@@ -226,6 +228,7 @@ function publicMeta(room, forId){
     rounds: room.rounds, turnSeconds: room.turnSeconds,
     isPublic: !!room.isPublic,
     roomName: room.name || '',
+    readyCountdownEndAt: room.readyCountdownEndAt || 0,
     turnOrder: room.turnOrder, currentRound: room.currentRound, currentTurnIndex: room.currentTurnIndex,
     currentDrawerId: room.currentDrawerId, turnSeq: room.turnSeq,
     currentWord: isDrawer ? room.currentWord : null,
@@ -308,7 +311,38 @@ function beginTurnWithWord(room, drawerId, word){
   room.turnTimer = setTimeout(()=> endTurn(room), room.turnSeconds*1000);
 }
 
+function clearReadyCountdown(room){
+  if(room.readyCountdownTimer){ clearTimeout(room.readyCountdownTimer); room.readyCountdownTimer = null; }
+  room.readyCountdownEndAt = 0;
+}
+function evaluateReadyState(room){
+  if(room.status !== 'lobby') return;
+  const players = activePlayers(room);
+  const total = players.length;
+  if(total < 2){ clearReadyCountdown(room); return; }
+  const readyCount = players.filter(p=>p.ready).length;
+  if(readyCount === total){
+    clearReadyCountdown(room);
+    startGameForRoom(room);
+    return;
+  }
+  if(total >= 4 && readyCount > total/2){
+    if(!room.readyCountdownEndAt){
+      room.readyCountdownEndAt = Date.now() + READY_COUNTDOWN_MS;
+      room.readyCountdownTimer = setTimeout(()=>{
+        room.readyCountdownTimer = null;
+        room.readyCountdownEndAt = 0;
+        if(room.status === 'lobby') startGameForRoom(room);
+      }, READY_COUNTDOWN_MS);
+    }
+  } else {
+    clearReadyCountdown(room);
+  }
+}
+
 function startGameForRoom(room){
+  clearReadyCountdown(room);
+  room.players.forEach(p=> { p.ready = false; });
   const ids = activePlayers(room).map(p=>p.id);
   if(ids.length < 2) return false;
   room.turnOrder = shuffle(ids);
@@ -401,7 +435,7 @@ function handleMessage(conn, msg){
     const id = genId('p');
     const room = newRoom(code, id);
     room.name = String(msg.roomName||'').trim().slice(0,24) || 'اتاق بازی';
-    room.players.set(id, {id, name: 'بازیکن1', colorIdx:0, score:0, connected:true, socket: conn.socket});
+    room.players.set(id, {id, name: 'بازیکن1', colorIdx:0, score:0, connected:true, ready:false, socket: conn.socket});
     rooms.set(code, room);
     conn.roomCode = code; conn.playerId = id;
     send(room.players.get(id), 'joined', {code, playerId:id, isHost:true});
@@ -431,9 +465,10 @@ function handleMessage(conn, msg){
     const id = genId('p');
     const colorIdx = nextFreeColorIdx(room);
     const defaultName = 'بازیکن' + (activePlayers(room).length + 1);
-    room.players.set(id, {id, name: defaultName, colorIdx, score:0, connected:true, socket: conn.socket});
+    room.players.set(id, {id, name: defaultName, colorIdx, score:0, connected:true, ready:false, socket: conn.socket});
     conn.roomCode = code; conn.playerId = id;
     send(room.players.get(id), 'joined', {code, playerId:id, isHost:false});
+    evaluateReadyState(room);
     broadcastState(room);
     return;
   }
@@ -447,6 +482,14 @@ function handleMessage(conn, msg){
     const newName = String(msg.name||'').trim().slice(0,16);
     if(!newName) return;
     player.name = newName;
+    broadcastState(room);
+    return;
+  }
+
+  if(type === 'setReady'){
+    if(room.status !== 'lobby') return;
+    player.ready = !!msg.ready;
+    evaluateReadyState(room);
     broadcastState(room);
     return;
   }
@@ -531,6 +574,7 @@ function handleMessage(conn, msg){
       room.nextTurnInfo = computeNextTurnInfo(room);
       broadcastState(room);
     } else {
+      evaluateReadyState(room);
       checkAllGuessedOrEnd(room);
       broadcastState(room);
     }
@@ -555,12 +599,12 @@ function handleDisconnect(conn){
 
   if(room.status === 'lobby'){
     room.players.delete(player.id);
+    evaluateReadyState(room);
   } else if(room.status === 'drawing'){
-    if(room.currentDrawerId === player.id){
-      endTurn(room);
-    } else {
-      checkAllGuessedOrEnd(room);
-    }
+    /* Keep the round going even if the drawer disconnects — the canvas
+       stays as-is, guessers can keep guessing, and the drawer can pick
+       their pencil back up the moment they reconnect (see 'rejoin'). */
+    checkAllGuessedOrEnd(room);
   } else if(room.status === 'turnEnd'){
     if(room.nextTurnInfo && room.nextTurnInfo.drawerId === player.id){
       if(room.nextTurnInfo.word) room.usedWords.delete(room.nextTurnInfo.word);
