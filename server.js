@@ -267,9 +267,13 @@ function scheduleEmptyCleanup(room){
   const anyConnected = activePlayers(room).length > 0;
   if(anyConnected) return;
   clearTimeout(room.emptyCleanupTimer);
+  /* Short grace period only to survive a quick page refresh/reconnect blip
+     for the last remaining player — not a long-lived "empty room" state.
+     The room is hidden from the public list immediately either way (see
+     listPublicRooms), so nobody can join an empty room during this window. */
   room.emptyCleanupTimer = setTimeout(()=>{
     if(activePlayers(room).length === 0){ clearRoomTimers(room); rooms.delete(room.code); }
-  }, 10*60*1000);
+  }, 20*1000);
 }
 
 /* ---- turn computation ---- */
@@ -448,7 +452,7 @@ function handleMessage(conn, msg){
     rooms.forEach(room=>{
       if(!room.isPublic || room.status !== 'lobby') return;
       const count = activePlayers(room).length;
-      if(count >= 8) return;
+      if(count === 0 || count >= 8) return;
       list.push({ code: room.code, roomName: room.name || 'اتاق بازی', playerCount: count });
     });
     list.sort((a,b)=> b.playerCount - a.playerCount);
@@ -503,6 +507,14 @@ function handleMessage(conn, msg){
   }
   else if(type === 'startGame'){
     if(room.hostId !== player.id || room.status !== 'lobby') return;
+    const players = activePlayers(room);
+    const total = players.length;
+    if(total < 2) return;
+    const readyCount = players.filter(p=>p.ready).length;
+    if(readyCount <= total/2){
+      send(player, 'errorMsg', {message:'برای شروع بازی باید حداقل اکثریت بازیکن‌ها اعلام آمادگی کرده باشند'});
+      return;
+    }
     startGameForRoom(room);
   }
   else if(type === 'strokeStart'){

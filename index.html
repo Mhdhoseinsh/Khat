@@ -2189,14 +2189,18 @@ function renderLobbyDynamic(){
 
   const startBtn = $('#startBtn');
   const hostHint = $('#hostHint');
+  const readyCountNow = players.filter(p=>p.ready).length;
+  const hasMajority = players.length >= 2 && readyCountNow > players.length/2;
   if(S.isHost){
     $$('.lobby-chip[data-vis]').forEach(b=> b.onclick = ()=> sendMsg('updateSettings', {isPublic: b.dataset.vis === '1'}));
     $$('.lobby-chip[data-r]').forEach(b=> b.onclick = ()=> sendMsg('updateSettings', {rounds: parseInt(b.dataset.r)}));
     $$('.lobby-chip[data-t]').forEach(b=> b.onclick = ()=> sendMsg('updateSettings', {turnSeconds: parseInt(b.dataset.t)}));
-    if(startBtn){ startBtn.style.display = ''; startBtn.disabled = players.length < 2; }
+    if(startBtn){ startBtn.style.display = ''; startBtn.disabled = !hasMajority; }
     if(hostHint){
-      hostHint.style.display = players.length < 2 ? 'block' : 'none';
-      hostHint.textContent = 'برای شروع حداقل ۲ بازیکن لازم است';
+      hostHint.style.display = hasMajority ? 'none' : 'block';
+      hostHint.textContent = players.length < 2
+        ? 'برای شروع حداقل ۲ بازیکن لازم است'
+        : 'برای شروع باید بیشتر از نصف بازیکن‌ها روی «آماده‌ام» بزنند (' + faNum(readyCountNow) + ' از ' + faNum(players.length) + ' آماده‌اند)';
     }
   } else {
     if(startBtn) startBtn.style.display = 'none';
