@@ -335,6 +335,66 @@ input,button,select,textarea{font-size:16px;}
 .hint-typed{ color:transparent; }
 .hint-rest{ color:rgba(139,146,180,.6); }
 
+.visibility-toggle{display:flex; gap:var(--s3);}
+.vis-btn{
+  flex:1; padding:12px 10px;
+  background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:12px;
+  color:var(--text-soft);
+  font-family:inherit; font-weight:700; font-size:13.5px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+  transition:border-color .2s, background .2s, color .2s;
+}
+.vis-btn:hover{border-color:rgba(255,255,255,.2); color:var(--text);}
+.vis-btn.active{
+  color:#fff; border-color:var(--brand);
+  background:rgba(108,107,255,.14);
+}
+.visibility-hint{margin-top:var(--s3); font-size:11.5px; font-weight:600; color:var(--text-soft); line-height:1.7;}
+.vis-badge{
+  padding:5px 10px; border-radius:8px;
+  font-size:11px; font-weight:800;
+  background:rgba(108,107,255,.14); color:var(--brand);
+  white-space:nowrap;
+}
+.vis-badge.private{background:rgba(255,255,255,.06); color:var(--text-soft);}
+
+.public-rooms-list{display:flex; flex-direction:column; gap:var(--s3); max-height:220px; overflow-y:auto;}
+.public-rooms-empty{
+  padding:var(--s5); text-align:center;
+  font-size:12.5px; font-weight:600; color:var(--text-soft);
+  background:rgba(255,255,255,.02); border:1px dashed rgba(255,255,255,.1); border-radius:12px;
+}
+.public-room-card{
+  display:flex; align-items:center; justify-content:space-between; gap:var(--s3);
+  padding:12px 14px;
+  background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:12px;
+}
+.public-room-info{display:flex; flex-direction:column; gap:2px; overflow:hidden;}
+.public-room-host{font-size:13.5px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.public-room-count{font-size:11.5px; font-weight:600; color:var(--text-soft);}
+.public-room-join{
+  flex-shrink:0; padding:8px 16px;
+  background:var(--brand); border:none; border-radius:10px;
+  color:#fff; font-family:inherit; font-weight:800; font-size:12.5px;
+  cursor:pointer; transition:background .2s, transform .12s;
+}
+.public-room-join:hover{background:#7B7AFF;}
+.public-room-join:active{transform:scale(.96);}
+.public-rooms-refresh{
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  width:100%; padding:9px; margin-top:var(--s3);
+  background:transparent; border:1px dashed rgba(255,255,255,.14); border-radius:10px;
+  color:var(--text-soft); font-family:inherit; font-weight:700; font-size:12px;
+  cursor:pointer; transition:color .2s, border-color .2s;
+}
+.public-rooms-refresh:hover{color:var(--text); border-color:rgba(255,255,255,.3);}
+.public-rooms-refresh svg{transition:transform .4s;}
+.public-rooms-refresh.spinning svg{transform:rotate(360deg);}
+
 .home-cta{
   width:100%; padding:15px 20px; margin-top:var(--s1);
   background:var(--brand); border:none; border-radius:12px;
@@ -1066,7 +1126,10 @@ const ICONS = {
   chevronLeft: '<path d="M15 6l-6 6 6 6"/>',
   volume: '<path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
   volumeOff: '<path d="M11 5 6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>',
-  wifiOff: '<path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>'
+  wifiOff: '<path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>',
+  refreshCw: '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
+  lock: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  globe: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>'
 };
 function icon(name, size){
   size = size || 18;
@@ -1614,7 +1677,8 @@ const S = {
   lastTurnSeq: null, lobbyAnimated: new Set(),
   pickedOption: null, dialogKey: null,
   lastTickSec: null, lastMyAnswerKey: null,
-  rcAutoResume: false
+  rcAutoResume: false,
+  publicRooms: []
 };
 
 /* ============================= ROUTER ============================= */
@@ -1737,12 +1801,18 @@ function onServerMessage(msg){
     case 'strokeEnd':
       delete S.remoteStrokes[msg.id];
       break;
+    case 'publicRoomsList':
+      S.publicRooms = msg.rooms || [];
+      if(S.screen === 'home') renderPublicRoomsList();
+      break;
   }
 }
 
 /* ============================= HOME ============================= */
 let homeMode = 'create';
+let createIsPublic = false;
 function mountHome(){
+  createIsPublic = false;
   const params = new URLSearchParams(location.search);
   const prefillCode = (params.get('room')||'').toUpperCase().slice(0,5);
   homeMode = prefillCode ? 'join' : 'create';
@@ -1779,10 +1849,27 @@ function mountHome(){
             </div>
           </div>
 
+          <div class="home-field" id="visibilityField">
+            <label>نوع اتاق</label>
+            <div class="visibility-toggle">
+              <button type="button" class="vis-btn active" data-vis="private">${icon('lock',15)} خصوصی</button>
+              <button type="button" class="vis-btn" data-vis="public">${icon('globe',15)} عمومی</button>
+            </div>
+            <div class="visibility-hint" id="visibilityHint">فقط کسانی که کد اتاق را داشته باشند می‌توانند بپیوندند.</div>
+          </div>
+
           <div class="home-field" id="joinCodeField">
             <label>کد اتاق</label>
             <input class="home-input home-input--code" id="codeInput" maxlength="5" placeholder="کد اتاق"
                    value="${escapeHtml(prefillCode)}" autocomplete="off" spellcheck="false">
+          </div>
+
+          <div class="home-field" id="publicRoomsField">
+            <label>یا یکی از اتاق‌های عمومی را انتخاب کن</label>
+            <div class="public-rooms-list" id="publicRoomsListEl">
+              <div class="public-rooms-empty">در حال بارگذاری اتاق‌ها...</div>
+            </div>
+            <button type="button" class="public-rooms-refresh" id="publicRoomsRefreshBtn">${icon('refreshCw',13)} به‌روزرسانی لیست</button>
           </div>
 
           <button class="home-cta" id="primaryActionBtn"></button>
@@ -1804,13 +1891,31 @@ function mountHome(){
 
   function applyHomeMode(){
     $$('.home-tab').forEach(b=> b.classList.toggle('active', b.dataset.mode===homeMode));
+    $('#visibilityField').style.display = homeMode==='create' ? '' : 'none';
     $('#joinCodeField').style.display = homeMode==='join' ? '' : 'none';
+    $('#publicRoomsField').style.display = homeMode==='join' ? '' : 'none';
     const btn = $('#primaryActionBtn');
     btn.innerHTML = homeMode==='join'
       ? '<span>پیوستن به اتاق</span>' + ctaIcon
       : '<span>ساخت اتاق جدید</span>' + ctaIcon;
     updateNameHint();
+    if(homeMode === 'join') requestPublicRooms();
   }
+  function requestPublicRooms(){
+    const refreshBtn = $('#publicRoomsRefreshBtn');
+    if(refreshBtn) refreshBtn.classList.add('spinning');
+    sendMsg('listPublicRooms', {});
+  }
+  renderPublicRoomsList();
+  $$('.vis-btn').forEach(b=> b.onclick = ()=>{
+    createIsPublic = b.dataset.vis === 'public';
+    $$('.vis-btn').forEach(x=> x.classList.toggle('active', x===b));
+    $('#visibilityHint').textContent = createIsPublic
+      ? 'اتاق در لیست عمومی «پیوستن» به همه نشان داده می‌شود و هرکسی می‌تواند با یک کلیک بپیوندد.'
+      : 'فقط کسانی که کد اتاق را داشته باشند می‌توانند بپیوندند.';
+    SFX.clickSoft();
+  });
+  $('#publicRoomsRefreshBtn').onclick = requestPublicRooms;
   function updateNameHint(){
     const input = $('#nameInput');
     const hint = $('#nameHint');
@@ -1850,14 +1955,38 @@ function mountHome(){
   if(prefillCode) setTimeout(()=> $('#nameInput').focus(), 50);
 }
 
+function renderPublicRoomsList(){
+  const el = $('#publicRoomsListEl');
+  const refreshBtn = $('#publicRoomsRefreshBtn');
+  if(refreshBtn) refreshBtn.classList.remove('spinning');
+  if(!el) return;
+  const list = S.publicRooms || [];
+  if(!list.length){
+    el.innerHTML = '<div class="public-rooms-empty">در حال حاضر اتاق عمومی بازی وجود ندارد. یک اتاق بساز!</div>';
+    return;
+  }
+  el.innerHTML = list.map(r => `
+    <div class="public-room-card">
+      <div class="public-room-info">
+        <span class="public-room-host">${escapeHtml(r.hostName)}</span>
+        <span class="public-room-count">${r.playerCount}/8 نفر · کد ${escapeHtml(r.code)}</span>
+      </div>
+      <button type="button" class="public-room-join" data-code="${escapeHtml(r.code)}">پیوستن</button>
+    </div>
+  `).join('');
+  $$('.public-room-join', el).forEach(btn=>{
+    btn.onclick = ()=> onJoinRoom(btn.dataset.code);
+  });
+}
+
 function onCreateRoom(){
   const name = ($('#nameInput').value||'').trim().slice(0,16) || 'بازیکن';
   S.me.name = name;
-  sendMsg('createRoom', {name});
+  sendMsg('createRoom', {name, isPublic: createIsPublic});
 }
-function onJoinRoom(){
+function onJoinRoom(codeOverride){
   const name = ($('#nameInput').value||'').trim().slice(0,16) || 'بازیکن';
-  const code = ($('#codeInput').value||'').trim().toUpperCase();
+  const code = (codeOverride || $('#codeInput').value || '').trim().toUpperCase();
   if(code.length < 4){ toast('کد اتاق را کامل وارد کن'); return; }
   S.me.name = name;
   sendMsg('joinRoom', {name, code});
@@ -1875,6 +2004,7 @@ function mountLobby(){
         <div class="lobby-code-row">
           <div class="lobby-code" dir="ltr">${escapeHtml(S.code||'')}</div>
           <button class="lobby-copy" id="copyLinkBtn">${icon('copy',13)}<span>کپی کد</span></button>
+          <span class="vis-badge" id="lobbyVisBadge"></span>
         </div>
         <p class="lobby-note">این کد را برای دوستات بفرست تا به بازی بپیوندند.</p>
         <div class="lobby-players-head">
@@ -1935,6 +2065,12 @@ function renderLobbyDynamic(){
   if(S.screen !== 'lobby' || !S.meta) return;
   const closeBtn = $('#closeRoomBtn');
   if(closeBtn) closeBtn.style.display = S.isHost ? '' : 'none';
+  const visBadge = $('#lobbyVisBadge');
+  if(visBadge){
+    const isPub = !!S.meta.isPublic;
+    visBadge.textContent = isPub ? 'عمومی' : 'خصوصی';
+    visBadge.classList.toggle('private', !isPub);
+  }
   const players = Object.values(S.players).filter(p=>p.connected).sort((a,b)=> (a.colorIdx-b.colorIdx));
   const countEl = $('#playerCount');
   if(countEl) countEl.textContent = faNum(players.length);

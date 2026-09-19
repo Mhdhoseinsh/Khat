@@ -191,7 +191,7 @@ function newRoom(code, hostId){
     currentDrawerId:null, turnSeq:0, currentWord:null, currentOptions:[],
     usedWords: new Set(), turnStartAt:0, turnEndAt:0, guessedIds: new Set(), turnScores:{},
     currentStrokes: [], turnTimer:null, advanceTimer:null, emptyCleanupTimer:null,
-    answers: {}, nextTurnInfo: null, isPreGame: false
+    answers: {}, nextTurnInfo: null, isPreGame: false, isPublic: false
   };
 }
 
@@ -224,6 +224,7 @@ function publicMeta(room, forId){
   const meta = {
     code: room.code, hostId: room.hostId, status: room.status,
     rounds: room.rounds, turnSeconds: room.turnSeconds,
+    isPublic: !!room.isPublic,
     turnOrder: room.turnOrder, currentRound: room.currentRound, currentTurnIndex: room.currentTurnIndex,
     currentDrawerId: room.currentDrawerId, turnSeq: room.turnSeq,
     currentWord: isDrawer ? room.currentWord : null,
@@ -398,11 +399,26 @@ function handleMessage(conn, msg){
     const code = genRoomCode();
     const id = genId('p');
     const room = newRoom(code, id);
+    room.isPublic = !!msg.isPublic;
     room.players.set(id, {id, name: String(msg.name||'بازیکن').slice(0,16) || 'بازیکن', colorIdx:0, score:0, connected:true, socket: conn.socket});
     rooms.set(code, room);
     conn.roomCode = code; conn.playerId = id;
     send(room.players.get(id), 'joined', {code, playerId:id, isHost:true});
     broadcastState(room);
+    return;
+  }
+  if(type === 'listPublicRooms'){
+    const tempPlayer = {socket: conn.socket, connected:true};
+    const list = [];
+    rooms.forEach(room=>{
+      if(!room.isPublic || room.status !== 'lobby') return;
+      const count = activePlayers(room).length;
+      if(count >= 8) return;
+      const host = room.players.get(room.hostId);
+      list.push({ code: room.code, hostName: host ? host.name : 'میزبان', playerCount: count });
+    });
+    list.sort((a,b)=> b.playerCount - a.playerCount);
+    send(tempPlayer, 'publicRoomsList', {rooms: list});
     return;
   }
   if(type === 'joinRoom'){
