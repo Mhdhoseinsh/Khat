@@ -2143,8 +2143,7 @@ function updateGameDynamic(prevStatus, prevSeq){
     if(iAmDrawer){
       wd.innerHTML = `<span class="actual">${escapeHtml(meta.currentWord||'')}</span>`;
     } else {
-      const boxes = Array(meta.wordLen||0).fill(0).map((_,i)=> `<span class="letter-box" style="animation-delay:${i*30}ms"></span>`).join('');
-      wd.innerHTML = `<div class="letter-boxes">${boxes}</div>`;
+      wd.innerHTML = '';
     }
   } else {
     wd.innerHTML = '';
