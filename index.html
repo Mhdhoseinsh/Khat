@@ -176,7 +176,6 @@ input,button,select,textarea{font-size:16px;}
   flex-shrink:0;
 }
 
-/* ---- MUTE BUTTON ---- */
 .mute-btn{
   width:36px; height:36px;
   border-radius:10px;
@@ -194,7 +193,6 @@ input,button,select,textarea{font-size:16px;}
 .mute-btn.muted{color:var(--coral); border-color:rgba(255,84,112,.3); background:rgba(255,84,112,.08);}
 .mute-btn svg{width:17px; height:17px;}
 
-/* ---- FORFEIT BUTTON ---- */
 .forfeit-btn{
   display:flex; align-items:center; gap:6px;
   height:36px; padding:0 12px;
@@ -361,11 +359,35 @@ input,button,select,textarea{font-size:16px;}
 }
 .vis-badge.private{background:rgba(255,255,255,.06); color:var(--text-soft);}
 
-.public-rooms-list{display:flex; flex-direction:column; gap:var(--s3); max-height:220px; overflow-y:auto;}
+/* ---- Public rooms list (live) ---- */
+.public-rooms-list{
+  display:flex; flex-direction:column; gap:var(--s3);
+  max-height:240px; overflow-y:auto;
+  scrollbar-width:thin;
+}
+.public-rooms-list::-webkit-scrollbar{ width:6px; }
+.public-rooms-list::-webkit-scrollbar-thumb{
+  background:rgba(255,255,255,.1); border-radius:99px;
+}
 .public-rooms-empty{
   padding:var(--s5); text-align:center;
   font-size:12.5px; font-weight:600; color:var(--text-soft);
-  background:rgba(255,255,255,.02); border:1px dashed rgba(255,255,255,.1); border-radius:12px;
+  background:rgba(255,255,255,.02);
+  border:1px dashed rgba(255,255,255,.1);
+  border-radius:12px;
+  display:flex; flex-direction:column; align-items:center; gap:var(--s2);
+}
+.public-rooms-empty::before{
+  content:"";
+  width:8px; height:8px; border-radius:50%;
+  background:var(--text-soft);
+  opacity:.4;
+  box-shadow:0 0 0 4px rgba(255,255,255,.03);
+  animation:roomsEmptyPulse 2s ease-in-out infinite;
+}
+@keyframes roomsEmptyPulse{
+  0%,100%{ opacity:.3; transform:scale(.85); }
+  50%{ opacity:.7; transform:scale(1); }
 }
 .public-room-card{
   display:flex; align-items:center; justify-content:space-between; gap:var(--s3);
@@ -374,6 +396,13 @@ input,button,select,textarea{font-size:16px;}
   border:1px solid rgba(255,255,255,.1);
   border-radius:12px;
 }
+.public-room-card.removing{
+  animation: roomOut .28s ease forwards;
+  pointer-events: none;
+}
+@keyframes roomOut{
+  to{ opacity:0; transform:translateX(-8px) scale(.96); }
+}
 .public-room-info{display:flex; flex-direction:column; gap:2px; overflow:hidden;}
 .public-room-host{font-size:13.5px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .public-room-count{font-size:11.5px; font-weight:600; color:var(--text-soft);}
@@ -381,20 +410,25 @@ input,button,select,textarea{font-size:16px;}
   flex-shrink:0; padding:8px 16px;
   background:var(--brand); border:none; border-radius:10px;
   color:#fff; font-family:inherit; font-weight:800; font-size:12.5px;
-  cursor:pointer; transition:background .2s, transform .12s;
+  cursor:pointer; transition:background .2s, transform .12s, opacity .2s;
+  min-width:84px;
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
 }
-.public-room-join:hover{background:#7B7AFF;}
-.public-room-join:active{transform:scale(.96);}
-.public-rooms-refresh{
-  display:flex; align-items:center; justify-content:center; gap:6px;
-  width:100%; padding:9px; margin-top:var(--s3);
-  background:transparent; border:1px dashed rgba(255,255,255,.14); border-radius:10px;
-  color:var(--text-soft); font-family:inherit; font-weight:700; font-size:12px;
-  cursor:pointer; transition:color .2s, border-color .2s;
+.public-room-join:hover:not(:disabled){ background:#7B7AFF; }
+.public-room-join:active:not(:disabled){ transform:scale(.96); }
+.public-room-join:disabled{
+  cursor:wait; opacity:.75;
+  background:var(--brand);
 }
-.public-rooms-refresh:hover{color:var(--text); border-color:rgba(255,255,255,.3);}
-.public-rooms-refresh svg{transition:transform .4s;}
-.public-rooms-refresh.spinning svg{transform:rotate(360deg);}
+.public-room-join .join-spinner{
+  width:12px; height:12px;
+  border:2px solid rgba(255,255,255,.35);
+  border-top-color:#fff;
+  border-radius:50%;
+  animation:joinSpin .7s linear infinite;
+  flex-shrink:0;
+}
+@keyframes joinSpin{ to{ transform:rotate(360deg); } }
 
 .home-cta{
   width:100%; padding:15px 20px; margin-top:var(--s1);
@@ -710,6 +744,7 @@ input,button,select,textarea{font-size:16px;}
 .round-dots span{width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,.15); transition:background .3s;}
 .round-dots span.done{background:var(--brand);}
 .game-turn-info{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
+.turn-offline-note{color:var(--coral); font-weight:700;}
 .game-turn-info b{color:var(--text); font-weight:800;}
 .game-time-text{
   font-weight:900; font-size:14px; color:var(--text);
@@ -1100,12 +1135,6 @@ canvas#board{
   color:var(--coral);
   animation:rcPulse 1.6s ease-in-out infinite;
 }
-.rc-icon-wrap.ready{
-  border-color:rgba(46,212,122,.45);
-  background:radial-gradient(circle, rgba(46,212,122,.2), rgba(46,212,122,.02));
-  color:var(--green);
-  animation:none;
-}
 @keyframes rcPulse{
   0%,100%{box-shadow:0 0 0 0 rgba(255,84,112,.35);}
   50%{box-shadow:0 0 0 14px rgba(255,84,112,0);}
@@ -1120,17 +1149,15 @@ canvas#board{
   padding:7px 14px; border-radius:20px;
   margin-bottom:22px;
 }
-.rc-status.ready{color:var(--green); background:rgba(46,212,122,.1); border-color:rgba(46,212,122,.3);}
 .rc-dot{width:7px; height:7px; border-radius:50%; background:var(--amber); animation:rcBlink 1s ease-in-out infinite;}
-.rc-status.ready .rc-dot{background:var(--green); animation:none;}
 @keyframes rcBlink{0%,100%{opacity:.3;} 50%{opacity:1;}}
 .rc-actions{display:flex; flex-direction:column; gap:10px;}
 </style>
 </head>
 <body>
 <div id="toast"></div>
-<div id="connBanner" class="conn-banner">اتصال قطع شد — در حال تلاش برای اتصال دوباره...</div>
 <div id="reconnectDialog" class="reconnect-overlay"></div>
+<div id="returnConfirmDialog" class="reconnect-overlay"></div>
 <div id="app"></div>
 <script>
 (function(){
@@ -1155,7 +1182,6 @@ const ICONS = {
   volume: '<path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
   volumeOff: '<path d="M11 5 6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>',
   wifiOff: '<path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>',
-  refreshCw: '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
   lock: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   logOut: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
   globe: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>'
@@ -1165,7 +1191,7 @@ function icon(name, size){
   return '<svg class="ic" width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICONS[name]||'')+'</svg>';
 }
 
-/* ============================= SOUND ENGINE (Web Audio API) ============================= */
+/* ============================= SOUND ENGINE ============================= */
 const SFX = {
   ctx:null, master:null, sfxGain:null, musicGain:null,
   enabled:true, musicTimer:null,
@@ -1210,7 +1236,6 @@ const SFX = {
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       o.connect(g); g.connect(this.sfxGain);
       o.start(t); o.stop(t + dur + 0.03);
-      /* thin detuned layer for extra body/sparkle */
       if(opt.layer){
         const o2 = this.ctx.createOscillator();
         o2.type = opt.t || 'sine';
@@ -1247,7 +1272,6 @@ const SFX = {
     }catch(e){}
   },
 
-  /* ---- actual effects: punchier, layered, and louder than before ---- */
   click(){ this.boot(); this.resume();
     this.tone(880, 0.06, {t:'square', v:0.22, attack:0.004});
     this.noise(0.02, {filter:'highpass', freq:4000, v:0.06});
@@ -1300,7 +1324,6 @@ const SFX = {
     this.tone(130.81, 1.0, {t:'sawtooth', v:0.16, d:0.05});
   },
 
-  /* ---- ambient music: two distinct tracks, switched by screen ---- */
   currentTrack: null,
   startMusic(track){
     track = track || 'game';
@@ -1317,7 +1340,6 @@ const SFX = {
     this.currentTrack = null;
   },
 
-  /* upbeat arcade loop for the drawing/game screen — quick, playful, syncopated */
   _startGameLoop(){
     const notes = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33];
     const melody = [4, 6, 4, 2, 0, 2, 4, 5, 6, 4, 6, 4, 5, 4, 2, 0, 2];
@@ -1338,7 +1360,6 @@ const SFX = {
     this.musicTimer = setInterval(play, 210);
   },
 
-  /* warm, friendly bounce for home/lobby screens — slower, bell-like, relaxed */
   _startMenuLoop(){
     const notes = [293.66, 349.23, 392.00, 440.00, 523.25, 587.33, 659.25];
     const melody = [0, 2, 4, 2, 5, 4, 2, 0, 1, 3, 4, 3, 2, 4, 0, 2];
@@ -1387,7 +1408,7 @@ const SFX = {
       const f = this.ctx.createBiquadFilter();
       f.type = 'highpass'; f.frequency.value = 6000;
       const g = this.ctx.createGain(); g.gain.value = v != null ? v : 0.06;
-      s.connect(f); f.connect(g); g.connect(this.musicGain);
+      s.connect(f); s.connect(g); g.connect(this.musicGain);
       s.start(t);
     }catch(e){}
   }
@@ -1398,7 +1419,6 @@ const SFX = {
   const kick = ()=>{ SFX.boot(); SFX.resume(); };
   document.addEventListener('pointerdown', kick, {once:true});
   document.addEventListener('keydown', kick, {once:true});
-  // restore mute preference
   try{
     const saved = localStorage.getItem('khatkhati_muted') === '1';
     if(saved) SFX.enabled = false;
@@ -1477,6 +1497,16 @@ const $ = (sel,root)=> (root||document).querySelector(sel);
 const $$ = (sel,root)=> Array.from((root||document).querySelectorAll(sel));
 const app = $('#app');
 
+function faNum(n){
+  const M = {'0':'۰','1':'۱','2':'۲','3':'۳','4':'۴','5':'۵','6':'۶','7':'۷','8':'۸','9':'۹'};
+  return String(n).replace(/[0-9]/g, c=> M[c]);
+}
+function toEnDigits(s){
+  const M = {'۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9',
+             '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9'};
+  return String(s).replace(/[۰-۹٠-٩]/g, c=> M[c] || c);
+}
+
 function toast(msg, ms){
   const t = $('#toast');
   t.textContent = msg;
@@ -1488,10 +1518,6 @@ function escapeHtml(s){
   return (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 function genLocalId(prefix){ return (prefix||'id')+'_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
-function faNum(n){
-  const map = {'0':'۰','1':'۱','2':'۲','3':'۳','4':'۴','5':'۵','6':'۶','7':'۷','8':'۸','9':'۹'};
-  return n.toString().split('').map(c=> map[c]!==undefined?map[c]:c).join('');
-}
 const PALETTE = ['#FF6A5B','#2FB6A6','#7C83FD','#FFC857','#FF8FB1','#59C36A','#5AA9E6','#C77DFF'];
 function colorFor(idx){ return PALETTE[idx % PALETTE.length]; }
 
@@ -1533,9 +1559,11 @@ function headerHTML(withRoom){
 /* ============================= WEBSOCKET ============================= */
 let ws = null;
 let wsReady = false;
+let connecting = false;
 let reconnectAttempt = 0;
 let reconnectTimer = null;
 let intentionalClose = false;
+let hasConnectedBefore = false;
 const pendingMsgs = [];
 
 function saveSession(code, playerId){
@@ -1549,48 +1577,62 @@ function clearSession(){
 }
 
 function connectWs(){
+  if(connecting) return;
+  if(ws && ws.readyState === 1) return;
+
+  connecting = true;
   clearTimeout(reconnectTimer);
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(proto + '//' + location.host);
-  ws.addEventListener('open', ()=>{
+  const sock = new WebSocket(proto + '//' + location.host);
+  ws = sock;
+
+  sock.addEventListener('open', ()=>{
+    connecting = false;
     wsReady = true;
     reconnectAttempt = 0;
-    $('#connBanner')?.classList.remove('show');
+
     const session = loadSession();
     if(session && session.code && session.playerId){
-      ws.send(JSON.stringify({type:'rejoin', code:session.code, playerId:session.playerId}));
-    }
-    while(pendingMsgs.length){
-      const m = pendingMsgs.shift();
-      try{ ws.send(JSON.stringify(m)); }catch(e){}
-    }
-    if(isReconnectDialogOpen()){
-      if(S.rcAutoResume){
-        S.rcAutoResume = false;
-        hideReconnectDialog();
+      if(!hasConnectedBefore){
+        /* اولین اتصال در این نشست صفحه: قبل از برگشت به بازی از کاربر می‌پرسیم */
+        showReturnConfirmDialog(session);
       } else {
-        setReconnectDialogReady();
+        try{ sock.send(JSON.stringify({type:'rejoin', code:session.code, playerId:session.playerId})); }catch(e){}
       }
     }
+    hasConnectedBefore = true;
+    while(pendingMsgs.length){
+      const m = pendingMsgs.shift();
+      try{ sock.send(JSON.stringify(m)); }catch(e){}
+    }
+
+    /* به محض اتصال موفق، دیالوگ قطعی رو خودکار ببند */
+    if(isReconnectDialogOpen()){
+      hideReconnectDialog();
+      toast('دوباره وصل شدی ✅');
+    }
   });
-  ws.addEventListener('message', (ev)=>{
+
+  sock.addEventListener('message', (ev)=>{
     let msg; try{ msg = JSON.parse(ev.data); }catch(e){ return; }
     onServerMessage(msg);
   });
-  ws.addEventListener('close', ()=>{
+
+  sock.addEventListener('close', ()=>{
+    connecting = false;
     wsReady = false;
     if(intentionalClose) return;
-    if(S.code && S.screen !== 'home') showReconnectDialog();
+    if(S.code && S.screen !== 'home' && S.screen !== 'final') showReconnectDialog();
     reconnectAttempt++;
     const delay = Math.min(1000 * Math.pow(1.6, reconnectAttempt), 8000);
     reconnectTimer = setTimeout(connectWs, delay);
   });
-  ws.addEventListener('error', ()=>{ try{ ws.close(); }catch(e){} });
+
+  sock.addEventListener('error', ()=>{ try{ sock.close(); }catch(e){} });
 }
 function sendMsg(type, data){
   const payload = Object.assign({type}, data||{});
   if(!ws || ws.readyState !== 1){
-    // Queue instead of dropping silently — flushed once the socket (re)connects.
     pendingMsgs.push(payload);
     if(!ws || ws.readyState === 3){ connectWs(); }
     return;
@@ -1610,23 +1652,23 @@ function showReconnectDialog(){
   if(!dlg.classList.contains('show')){
     dlg.innerHTML = `
       <div class="reconnect-card">
-        <div class="rc-icon-wrap" id="rcIconWrap">${icon('wifiOff',30)}</div>
-        <div class="rc-title" id="rcTitle">اتصال قطع شد!</div>
-        <div class="rc-sub">نگران نباش، بازی همین‌جا منتظرته. وقتی آماده بودی برگرد و ادامه بده.</div>
-        <div class="rc-status" id="rcStatus"><span class="rc-dot"></span><span id="rcStatusTxt">در حال تلاش برای اتصال دوباره...</span></div>
+        <div class="rc-icon-wrap">${icon('wifiOff',30)}</div>
+        <div class="rc-title">اتصال قطع شد</div>
+        <div class="rc-sub">نگران نباش، بازی همچنان ادامه دارد. به محض برگشت اینترنت، خودکار به بازی برمی‌گردی.</div>
+        <div class="rc-status"><span class="rc-dot"></span><span>در حال تلاش برای اتصال دوباره...</span></div>
         <div class="rc-actions">
-          <button type="button" class="btn btn-primary btn-block" id="rcReturnBtn">${icon('link',16)} بازگشت به بازی</button>
           <button type="button" class="btn btn-ghost btn-block" id="rcExitBtn">خروج از بازی</button>
         </div>
       </div>`;
     SFX.dialogIn();
-    $('#rcReturnBtn').onclick = onReconnectReturnClick;
     $('#rcExitBtn').onclick = ()=>{
       intentionalClose = true;
       clearTimeout(reconnectTimer);
+      connecting = false;
       try{ ws && ws.close(); }catch(e){}
+      ws = null;
       clearSession();
-      S.code = null; S.me.id = null; S.isHost = false; S.meta = null; S.rcAutoResume = false;
+      S.code = null; S.me.id = null; S.isHost = false; S.meta = null;
       hideReconnectDialog();
       history.replaceState(null,'',location.pathname);
       goTo('home');
@@ -1634,38 +1676,7 @@ function showReconnectDialog(){
       connectWs();
     };
   }
-  if(wsReady) setReconnectDialogReady(); else setReconnectDialogWaiting();
   dlg.classList.add('show');
-}
-function setReconnectDialogWaiting(){
-  const wrap = $('#rcIconWrap'), status = $('#rcStatus'), txt = $('#rcStatusTxt'), title = $('#rcTitle');
-  if(!wrap) return;
-  wrap.classList.remove('ready');
-  status.classList.remove('ready');
-  wrap.innerHTML = icon('wifiOff',30);
-  title.textContent = 'اتصال قطع شد!';
-  txt.textContent = 'در حال تلاش برای اتصال دوباره...';
-}
-function setReconnectDialogReady(){
-  const wrap = $('#rcIconWrap'), status = $('#rcStatus'), txt = $('#rcStatusTxt'), title = $('#rcTitle');
-  if(!wrap) return;
-  wrap.classList.add('ready');
-  status.classList.add('ready');
-  wrap.innerHTML = icon('check',30);
-  title.textContent = 'دوباره وصل شدی!';
-  txt.textContent = 'آماده‌ای برگردی به بازی';
-  SFX.clickSoft();
-}
-function onReconnectReturnClick(){
-  const btn = $('#rcReturnBtn');
-  if(wsReady){
-    hideReconnectDialog();
-    return;
-  }
-  S.rcAutoResume = true;
-  if(btn) btn.innerHTML = icon('clock',16) + ' در حال اتصال...';
-  setReconnectDialogWaiting();
-  connectWs();
 }
 function hideReconnectDialog(){
   const dlg = $('#reconnectDialog');
@@ -1674,22 +1685,62 @@ function hideReconnectDialog(){
   dlg.innerHTML = '';
 }
 
-/* Reconnect immediately when the browser/tab comes back online or foreground,
-   instead of waiting for the backoff timer. */
+/* ============================= RETURN-CONFIRM DIALOG ============================= */
+function showReturnConfirmDialog(session){
+  const dlg = $('#returnConfirmDialog');
+  if(!dlg) return;
+  dlg.innerHTML = `
+    <div class="reconnect-card">
+      <div class="rc-icon-wrap">${icon('user',30)}</div>
+      <div class="rc-title">برگشت به بازی</div>
+      <div class="rc-sub">تو وسط یک بازی بودی. می‌خوای به بازی برگردی؟</div>
+      <div class="rc-actions">
+        <button type="button" class="btn btn-primary btn-block" id="rcReturnYes">بله، برگرد</button>
+        <button type="button" class="btn btn-ghost btn-block" id="rcReturnNo">نه، خروج</button>
+      </div>
+    </div>`;
+  SFX.dialogIn();
+  dlg.classList.add('show');
+  $('#rcReturnYes').onclick = ()=>{
+    hideReturnConfirmDialog();
+    try{
+      if(ws && ws.readyState === 1){
+        ws.send(JSON.stringify({type:'rejoin', code:session.code, playerId:session.playerId}));
+      } else {
+        pendingMsgs.push({type:'rejoin', code:session.code, playerId:session.playerId});
+        connectWs();
+      }
+    }catch(e){}
+  };
+  $('#rcReturnNo').onclick = ()=>{
+    hideReturnConfirmDialog();
+    clearSession();
+    S.code = null; S.me.id = null; S.isHost = false; S.meta = null;
+    history.replaceState(null,'',location.pathname);
+    goTo('home');
+  };
+}
+function hideReturnConfirmDialog(){
+  const dlg = $('#returnConfirmDialog');
+  if(!dlg) return;
+  dlg.classList.remove('show');
+  dlg.innerHTML = '';
+}
+
 window.addEventListener('online', ()=>{
-  if(!wsReady){
-    if(S.code && S.screen !== 'home') showReconnectDialog();
-    connectWs();
-  }
+  if(!wsReady){ connectWs(); }
 });
 document.addEventListener('visibilitychange', ()=>{
   if(document.visibilityState === 'visible' && !wsReady){
-    if(S.code && S.screen !== 'home') showReconnectDialog();
     connectWs();
   }
   if(document.visibilityState === 'hidden'){
     if(SFX.musicTimer){ SFX._pausedTrack = SFX.currentTrack; SFX.stopMusic(); }
     if(SFX.ctx && SFX.ctx.state === 'running'){ try{ SFX.ctx.suspend(); }catch(e){} }
+    /* اگر کاربر وسط یک بازی/اتاق باشد و صفحه را به پس‌زمینه ببرد، اگر بعداً
+       اتصال قطع شده باشد و نیاز به وصل‌شدن دوباره پیدا شود، دوباره از او
+       بپرس که می‌خواهد برگردد یا نه (به‌جای برگشت خودکار و بی‌اطلاع او) */
+    if(S.code && S.screen !== 'home'){ hasConnectedBefore = false; }
   } else if(document.visibilityState === 'visible'){
     if(SFX.ctx && SFX.ctx.state === 'suspended' && SFX.enabled){ try{ SFX.ctx.resume(); }catch(e){} }
     if(SFX._pausedTrack && SFX.enabled){ SFX.startMusic(SFX._pausedTrack); SFX._pausedTrack = null; }
@@ -1708,8 +1759,8 @@ const S = {
   lastTurnSeq: null, lobbyAnimated: new Set(),
   pickedOption: null, dialogKey: null,
   lastTickSec: null, lastMyAnswerKey: null,
-  rcAutoResume: false,
-  publicRooms: []
+  publicRooms: [],
+  _syncMyNameInput: null
 };
 
 /* ============================= ROUTER ============================= */
@@ -1727,7 +1778,10 @@ function goTo(screen){
     S.mounting = false;
     requestAnimationFrame(()=> requestAnimationFrame(()=> app.classList.remove('screen-exit')));
   };
-  if(leavingGame) SFX.stopMusic();
+  if(leavingGame){
+    SFX.stopMusic();
+    clearInterval(startTimerLoop._t);
+  }
   if(app.children.length){
     app.classList.add('screen-exit');
     setTimeout(doMount, 170);
@@ -1742,11 +1796,9 @@ function goTo(screen){
 });
 document.addEventListener('click', (e)=>{
   const t = e.target;
-  /* mute button - handled separately */
   if(t.closest('#muteBtn')) return;
-  /* game option buttons - special sound */
   if(t.closest('.guess-option-btn')){ return; }
-  /* generic buttons */
+  if(t.closest('.public-room-join')) return;
   const btn = t.closest('button, .home-tab, .lobby-chip');
   if(btn && !btn.disabled){
     if(btn.classList.contains('home-tab') || btn.classList.contains('lobby-chip')) SFX.select();
@@ -1754,7 +1806,6 @@ document.addEventListener('click', (e)=>{
   }
 });
 
-/* mute toggle (event delegation so it works on all screens) */
 document.addEventListener('click', (e)=>{
   const mb = e.target.closest('#muteBtn');
   if(!mb) return;
@@ -1770,7 +1821,6 @@ document.addEventListener('click', (e)=>{
   }
 });
 
-/* forfeit (leave the game entirely from the game screen) */
 document.addEventListener('click', (e)=>{
   const fb = e.target.closest('#forfeitBtn');
   if(!fb) return;
@@ -1785,14 +1835,22 @@ document.addEventListener('click', (e)=>{
 function onServerMessage(msg){
   switch(msg.type){
     case 'joined':
-      S.code = msg.code; S.me.id = msg.playerId; S.isHost = msg.isHost;
+      /* کد اتاق همیشه با ارقام انگلیسی نمایش داده می‌شود */
+      S.code = msg.code || '';
+      S.me.id = msg.playerId; S.isHost = msg.isHost;
       S.lobbyAnimated = new Set();
-      saveSession(msg.code, msg.playerId);
+      saveSession(msg.code, msg.playerId); /* ذخیره‌ی نسخه لاتین برای rejoin */
       if(S.screen !== 'lobby' && S.screen !== 'game' && S.screen !== 'final') goTo('lobby');
       break;
     case 'errorMsg':
       SFX.wrong();
       toast(msg.message);
+      $$('.public-room-join').forEach(btn=>{
+        if(btn.disabled){
+          btn.disabled = false;
+          btn.textContent = 'پیوستن';
+        }
+      });
       if(msg.fatal){
         clearSession();
         S.code = null; S.me.id = null; S.isHost = false; S.meta = null;
@@ -1810,6 +1868,8 @@ function onServerMessage(msg){
       const prevSeq = S.meta ? S.meta.turnSeq : null;
       S.meta = msg.meta; S.players = msg.players;
       S.isHost = msg.meta.hostId === S.me.id;
+      /* کد اتاق همیشه با ارقام انگلیسی نمایش داده می‌شود */
+      if(msg.meta && msg.meta.code) S.code = msg.meta.code;
       let changed;
       if(msg.meta.status === 'lobby') changed = goTo('lobby');
       else if(msg.meta.status === 'final') changed = goTo('final');
@@ -1845,16 +1905,22 @@ function onServerMessage(msg){
       break;
     case 'publicRoomsList':
       S.publicRooms = msg.rooms || [];
-      if(S.screen === 'home') renderPublicRoomsList();
+      if(S.screen === 'home' && homeMode === 'join') renderPublicRoomsList();
       break;
   }
 }
 
 /* ============================= HOME ============================= */
 let homeMode = 'create';
+
+function pickRandomMythName(){
+  return NAME_LIST[Math.floor(Math.random()*NAME_LIST.length)];
+}
+
 function mountHome(){
   const params = new URLSearchParams(location.search);
-  const prefillCode = (params.get('room')||'').toUpperCase().slice(0,5);
+  const rawPrefill = toEnDigits(params.get('room')||'').toUpperCase();
+  const prefillCode = rawPrefill.replace(/[^A-Z0-9]/g,'').slice(0,5);
   homeMode = prefillCode ? 'join' : 'create';
 
   const ctaIcon = icon('chevronLeft', 16);
@@ -1893,11 +1959,10 @@ function mountHome(){
           </div>
 
           <div class="home-field" id="publicRoomsField">
-            <label>یا یکی از اتاق‌های عمومی را انتخاب کن</label>
+            <label>اتاق‌های عمومی (زنده به‌روز می‌شوند)</label>
             <div class="public-rooms-list" id="publicRoomsListEl">
               <div class="public-rooms-empty">در حال بارگذاری اتاق‌ها...</div>
             </div>
-            <button type="button" class="public-rooms-refresh" id="publicRoomsRefreshBtn">${icon('refreshCw',13)} به‌روزرسانی لیست</button>
           </div>
 
           <button class="home-cta" id="primaryActionBtn"></button>
@@ -1924,21 +1989,19 @@ function mountHome(){
     $('#publicRoomsField').style.display = homeMode==='join' ? '' : 'none';
     const btn = $('#primaryActionBtn');
     btn.innerHTML = homeMode==='join'
-      ? '<span>پیوستن به اتاق</span>' + ctaIcon
+      ? '<span>پیوستن با کد</span>' + ctaIcon
       : '<span>ساخت اتاق جدید</span>' + ctaIcon;
-    if(homeMode === 'join') requestPublicRooms();
-  }
-  function requestPublicRooms(){
-    const refreshBtn = $('#publicRoomsRefreshBtn');
-    if(refreshBtn) refreshBtn.classList.add('spinning');
-    sendMsg('listPublicRooms', {});
+    if(homeMode === 'join') sendMsg('listPublicRooms', {});
   }
   renderPublicRoomsList();
-  $('#publicRoomsRefreshBtn').onclick = requestPublicRooms;
   $$('.home-tab').forEach(b=> b.onclick = ()=>{ homeMode = b.dataset.mode; applyHomeMode(); });
   applyHomeMode();
   $('#primaryActionBtn').onclick = ()=>{ homeMode==='join' ? onJoinRoom() : onCreateRoom(); };
-  $('#codeInput').addEventListener('input', e=>{ e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5); });
+
+  $('#codeInput').addEventListener('input', e=>{
+    const en = toEnDigits(e.target.value).toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5);
+    e.target.value = en;
+  });
   $('#roomNameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onCreateRoom(); });
   $('#codeInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onJoinRoom(); });
   if(prefillCode) setTimeout(()=> $('#codeInput').focus(), 50);
@@ -1946,36 +2009,114 @@ function mountHome(){
 
 function renderPublicRoomsList(){
   const el = $('#publicRoomsListEl');
-  const refreshBtn = $('#publicRoomsRefreshBtn');
-  if(refreshBtn) refreshBtn.classList.remove('spinning');
   if(!el) return;
   const list = S.publicRooms || [];
+
   if(!list.length){
-    el.innerHTML = '<div class="public-rooms-empty">در حال حاضر اتاق عمومی بازی وجود ندارد. یک اتاق بساز!</div>';
+    const cards = el.querySelectorAll('.public-room-card');
+    if(cards.length){
+      cards.forEach(card => {
+        if(!card.classList.contains('removing')){
+          card.classList.add('removing');
+          setTimeout(() => card.remove(), 300);
+        }
+      });
+      setTimeout(() => {
+        if(el.querySelector('.public-room-card')) return;
+        if(!el.querySelector('.public-rooms-empty')){
+          el.innerHTML = '<div class="public-rooms-empty">در حال حاضر اتاق عمومی بازی وجود ندارد. یک اتاق بساز!</div>';
+        }
+      }, 320);
+    } else if(!el.querySelector('.public-rooms-empty')){
+      el.innerHTML = '<div class="public-rooms-empty">در حال حاضر اتاق عمومی بازی وجود ندارد. یک اتاق بساز!</div>';
+    }
     return;
   }
-  el.innerHTML = list.map(r => `
-    <div class="public-room-card">
-      <div class="public-room-info">
-        <span class="public-room-host">${escapeHtml(r.roomName)}</span>
-        <span class="public-room-count">${r.playerCount}/8 نفر · کد ${escapeHtml(r.code)}</span>
-      </div>
-      <button type="button" class="public-room-join" data-code="${escapeHtml(r.code)}">پیوستن</button>
-    </div>
-  `).join('');
-  $$('.public-room-join', el).forEach(btn=>{
-    btn.onclick = ()=> onJoinRoom(btn.dataset.code);
+
+  const emptyEl = el.querySelector('.public-rooms-empty');
+  if(emptyEl) emptyEl.remove();
+
+  const existing = new Map();
+  el.querySelectorAll('.public-room-card').forEach(card => {
+    if(card.classList.contains('removing')) return;
+    existing.set(card.dataset.code, card);
   });
+
+  const newCodes = new Set(list.map(r => r.code));
+  existing.forEach((card, code) => {
+    if(!newCodes.has(code)){
+      card.classList.add('removing');
+      setTimeout(() => card.remove(), 300);
+      existing.delete(code);
+    }
+  });
+
+  let prevEl = null;
+  list.forEach((r) => {
+    let card = existing.get(r.code);
+    if(card){
+      const countEl = card.querySelector('.public-room-count');
+      if(countEl){
+        const txt = faNum(r.playerCount) + ' از ' + faNum(8) + ' نفر';
+        if(countEl.textContent !== txt) countEl.textContent = txt;
+      }
+    } else {
+      card = document.createElement('div');
+      card.className = 'public-room-card';
+      card.dataset.code = r.code;
+      card.innerHTML = `
+        <div class="public-room-info">
+          <span class="public-room-host">${escapeHtml(r.roomName)}</span>
+          <span class="public-room-count">${faNum(r.playerCount)} از ${faNum(8)} نفر</span>
+        </div>
+        <button type="button" class="public-room-join">پیوستن</button>
+      `;
+      const btn = card.querySelector('.public-room-join');
+      btn.addEventListener('click', () => handlePublicJoinClick(btn));
+      existing.set(r.code, card);
+
+      card.animate(
+        [
+          { opacity: 0, transform: 'translateY(10px)' },
+          { opacity: 1, transform: 'translateY(0)' }
+        ],
+        { duration: 300, easing: 'ease', fill: 'both' }
+      );
+    }
+    if(prevEl){
+      if(prevEl.nextElementSibling !== card) prevEl.after(card);
+    } else {
+      if(el.firstElementChild !== card) el.prepend(card);
+    }
+    prevEl = card;
+  });
+}
+
+function handlePublicJoinClick(btn){
+  if(btn.disabled) return;
+  const card = btn.closest('.public-room-card');
+  if(!card) return;
+  const code = card.dataset.code;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="join-spinner"></span> بررسی';
+  onJoinRoom(code, true);
+  setTimeout(() => {
+    if(btn.isConnected && btn.disabled){
+      btn.disabled = false;
+      btn.textContent = 'پیوستن';
+    }
+  }, 3000);
 }
 
 function onCreateRoom(){
   const roomName = ($('#roomNameInput').value||'').trim().slice(0,24);
-  sendMsg('createRoom', {roomName});
+  sendMsg('createRoom', {roomName, preferredName: pickRandomMythName()});
 }
-function onJoinRoom(codeOverride){
-  const code = (codeOverride || $('#codeInput').value || '').trim().toUpperCase();
+function onJoinRoom(codeOverride, viaPublicList){
+  const raw = (codeOverride || $('#codeInput').value || '').trim();
+  const code = toEnDigits(raw).toUpperCase().replace(/[^A-Z0-9]/g,'');
   if(code.length < 4){ toast('کد اتاق را کامل وارد کن'); return; }
-  sendMsg('joinRoom', {code});
+  sendMsg('joinRoom', {code, preferredName: pickRandomMythName(), viaPublicList: !!viaPublicList});
 }
 
 /* ============================= LOBBY ============================= */
@@ -2005,7 +2146,7 @@ function mountLobby(){
           <div class="lobby-field">
             <label>نام شما</label>
             <div class="home-input-wrap">
-              <input class="home-input" id="myNameInput" maxlength="16" placeholder="اسمت رو وارد کن" autocomplete="off" spellcheck="false">
+              <input class="home-input" id="myNameInput" maxlength="24" placeholder="اسمت رو وارد کن" autocomplete="off" spellcheck="false">
               <div class="home-input-hint is-hidden" id="myNameHint" aria-hidden="true"></div>
             </div>
           </div>
@@ -2046,10 +2187,41 @@ function mountLobby(){
       else toast('کپی نشد');
     });
   };
+
   const myNameInput = $('#myNameInput');
   const myNameHint = $('#myNameHint');
   const myName = S.players[S.me.id];
   myNameInput.value = myName ? myName.name : '';
+
+  function getAppliedName(){
+    const p = S.players[S.me.id];
+    return p ? (p.name || '') : '';
+  }
+
+  let nameSaveTimer = null;
+  let lastSentName = myNameInput.value.trim().slice(0,24);
+
+  function scheduleNameSave(){
+    clearTimeout(nameSaveTimer);
+    nameSaveTimer = setTimeout(()=>{
+      nameSaveTimer = null;
+      const val = myNameInput.value.trim().slice(0,24);
+      if(!val || val === getAppliedName() || val === lastSentName) return;
+      lastSentName = val;
+      sendMsg('updateName', {name: val});
+    }, 500);
+  }
+  function flushNameSave(){
+    if(nameSaveTimer){
+      clearTimeout(nameSaveTimer);
+      nameSaveTimer = null;
+    }
+    const val = myNameInput.value.trim().slice(0,24);
+    if(!val || val === getAppliedName() || val === lastSentName) return;
+    lastSentName = val;
+    sendMsg('updateName', {name: val});
+  }
+
   function updateMyNameHint(){
     clearTimeout(updateMyNameHint._t);
     myNameHint.classList.add('is-hidden');
@@ -2074,15 +2246,30 @@ function mountLobby(){
       myNameHint.classList.remove('is-hidden');
     }, 200);
   }
-  function submitMyName(){
-    const val = myNameInput.value.trim().slice(0,16);
-    if(!val) return;
-    sendMsg('updateName', {name: val});
-  }
-  myNameInput.addEventListener('input', updateMyNameHint);
+
+  myNameInput.addEventListener('input', ()=>{
+    updateMyNameHint();
+    scheduleNameSave();
+  });
   myNameInput.addEventListener('focus', updateMyNameHint);
-  myNameInput.addEventListener('blur', ()=>{ myNameHint.classList.add('is-hidden'); submitMyName(); });
-  myNameInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); myNameInput.blur(); } });
+  myNameInput.addEventListener('blur', ()=>{
+    myNameHint.classList.add('is-hidden');
+    flushNameSave();
+  });
+  myNameInput.addEventListener('keydown', e=>{
+    if(e.key==='Enter'){ e.preventDefault(); myNameInput.blur(); }
+  });
+
+  S._syncMyNameInput = ()=>{
+    if(!myNameInput) return;
+    if(document.activeElement === myNameInput) return;
+    const applied = getAppliedName();
+    if(applied && myNameInput.value.trim() !== applied){
+      myNameInput.value = applied;
+      lastSentName = applied;
+    }
+  };
+
   $('#startBtn').onclick = ()=> sendMsg('startGame', {});
   $('#readyBtn').onclick = ()=>{
     const me = S.players[S.me.id];
@@ -2126,6 +2313,9 @@ function updateReadyCountdownDisplay(){
 
 function renderLobbyDynamic(){
   if(S.screen !== 'lobby' || !S.meta) return;
+
+  if(typeof S._syncMyNameInput === 'function') S._syncMyNameInput();
+
   const closeBtn = $('#closeRoomBtn');
   if(closeBtn) closeBtn.style.display = S.isHost ? '' : 'none';
   const visBadge = $('#lobbyVisBadge');
@@ -2199,7 +2389,7 @@ function renderLobbyDynamic(){
     if(hostHint){
       hostHint.style.display = hasMajority ? 'none' : 'block';
       hostHint.textContent = players.length < 2
-        ? 'برای شروع حداقل ۲ بازیکن لازم است'
+        ? 'برای شروع حداقل ' + faNum(2) + ' بازیکن لازم است'
         : 'برای شروع باید بیشتر از نصف بازیکن‌ها روی «آماده‌ام» بزنند (' + faNum(readyCountNow) + ' از ' + faNum(players.length) + ' آماده‌اند)';
     }
   } else {
@@ -2272,7 +2462,6 @@ function mountGame(){
   updateGameDynamic(null, null);
   startTimerLoop();
 
-  /* start background music */
   if(SFX.enabled) SFX.startMusic('game');
 }
 
@@ -2297,7 +2486,6 @@ function updateTimerDisplay(){
     const warn = secs <= 10;
     if(timerBar) timerBar.classList.toggle('warn', warn);
 
-    /* tick sounds in the last 10 seconds */
     if(secs <= 10 && secs > 0 && secs !== S.lastTickSec){
       S.lastTickSec = secs;
       if(secs <= 3) SFX.urgentTick(); else SFX.tick();
@@ -2317,28 +2505,19 @@ function updateGameDynamic(prevStatus, prevSeq){
   const drawer = players[meta.currentDrawerId];
   const iAmDrawer = meta.currentDrawerId === S.me.id;
 
-  /* ---- state transition sounds ---- */
   if(prevStatus !== meta.status){
     if(prevStatus === 'drawing' && meta.status === 'turnEnd'){
-      /* is it a time-up or all-guessed end? we play timeUp if drawer hasn't been scored for correct */
-      /* simple heuristic: play timeUp sound always; correct sounds already played per correct guess */
       SFX.timeUp();
     }
     if(prevStatus === 'lobby' && meta.status === 'turnEnd' && meta.isPreGame){
       SFX.gameStart();
     }
-    if(meta.status === 'final' && prevStatus !== 'final'){
-      SFX.stopMusic();
-      SFX.victory();
-    }
-    /* new drawing started (dialog closed, game begins) */
     if(meta.status === 'drawing' && prevStatus === 'turnEnd'){
       if(iAmDrawer) SFX.turnStart();
       else SFX.clickSoft();
     }
   }
 
-  /* ---- wrong guess local sound ---- */
   const curMyAnswer = meta.myAnswer;
   const curMyKey = curMyAnswer ? (curMyAnswer.word + '_' + (curMyAnswer.correct?'c':'w')) : null;
   if(curMyKey && curMyKey !== S.lastMyAnswerKey){
@@ -2349,7 +2528,10 @@ function updateGameDynamic(prevStatus, prevSeq){
   $('#roundNow').textContent = faNum(meta.currentRound);
   $('#roundTotal').textContent = faNum(meta.rounds);
   $('#roundDots').innerHTML = Array.from({length: meta.rounds||1}).map((_,i)=> `<span class="${i < meta.currentRound ? 'done':''}"></span>`).join('');
-  $('#turnInfo').innerHTML = `نوبت رسم: <b>${escapeHtml(drawer?drawer.name:'')}</b>`;
+  const drawerOffline = !!(drawer && drawer.connected === false && meta.status === 'drawing');
+  $('#turnInfo').innerHTML = drawerOffline
+    ? `نوبت رسم: <b>${escapeHtml(drawer?drawer.name:'')}</b> <span class="turn-offline-note">— اتصالش قطع شده، منتظر بازگشتش بمان</span>`
+    : `نوبت رسم: <b>${escapeHtml(drawer?drawer.name:'')}</b>`;
   updateTimerDisplay();
 
   if(meta.turnSeq !== S.lastTurnSeq){
@@ -2472,8 +2654,6 @@ function updateTurnDialog(meta, players){
   S.dialogKey = key;
   clearTimeout(turnDialogTimer);
 
-  /* Give players ~3s to first see the green/red result on their avatar in the
-     player strip before the turn-end dialog covers the screen. */
   turnDialogTimer = setTimeout(()=>{
     turnDialogTimer = null;
     renderTurnDialog(meta, players, isPreGame);
@@ -2489,7 +2669,6 @@ function renderTurnDialog(meta, players, isPreGame){
   const iAmNextDrawer = nextDrawerId === myId;
   const nextDrawerName = escapeHtml(nextDrawer ? nextDrawer.name : '');
 
-  /* dialog open sound; special fanfare if it's your turn to draw next */
   SFX.dialogIn();
   if(iAmNextDrawer){
     setTimeout(()=> SFX.yourTurn(), 120);
@@ -2692,6 +2871,8 @@ function mountFinal(){
       <div class="final-actions" id="finalActions"></div>
     </div>
   </div>`;
+  SFX.stopMusic();
+  SFX.victory();
   fireConfetti();
   renderFinalDynamic();
 }

@@ -6,8 +6,9 @@ const path = require('path');
 const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
-const ADVANCE_DELAY = process.env.FAST_TEST === '1' ? 300 : 7000; // ۷ ثانیه دیالوگ
-const READY_COUNTDOWN_MS = process.env.FAST_TEST === '1' ? 800 : 10000; // ۱۰ ثانیه شمارش معکوس آماده‌باش
+const ADVANCE_DELAY = process.env.FAST_TEST === '1' ? 300 : 7000;
+const READY_COUNTDOWN_MS = process.env.FAST_TEST === '1' ? 800 : 10000;
+const DISCONNECT_GRACE_MS = 60 * 1000; /* ۱ دقیقه فرصت برگشت */
 
 /* ============================= static file ============================= */
 const indexPath = path.join(__dirname, 'index.html');
@@ -85,12 +86,21 @@ function makeFrameParser(onFrame){
   };
 }
 
+/* ============================= live connections ============================= */
+const liveConns = new Set();
+
 /* ============================= game utils ============================= */
 function genId(p){ return (p||'id') + '_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
 function genRoomCode(){
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let s=''; for(let i=0;i<5;i++) s += chars[Math.floor(Math.random()*chars.length)];
   return s;
+}
+function toEnDigits(str){
+  if(str == null) return '';
+  const M = {'۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9',
+             '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9'};
+  return String(str).replace(/[۰-۹٠-٩]/g, c=> M[c] || c);
 }
 function normalizeFa(str){
   if(!str) return '';
@@ -105,6 +115,20 @@ function shuffle(arr){
   const a = arr.slice();
   for(let i=a.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
   return a;
+}
+function sanitizeName(raw){
+  return String(raw||'').trim().replace(/\s+/g,' ').slice(0,24);
+}
+function makeUniqueName(room, preferred){
+  const name = sanitizeName(preferred);
+  if(!name) return null;
+  const existing = new Set(Array.from(room.players.values()).map(p=> p.name));
+  if(!existing.has(name)) return name;
+  for(let i=2;i<200;i++){
+    const candidate = name + ' ' + i;
+    if(!existing.has(candidate)) return candidate;
+  }
+  return name + ' ' + Math.floor(Math.random()*1000);
 }
 
 const WORD_CATEGORIES = {
@@ -140,10 +164,309 @@ const WORD_CATEGORIES = {
   "لوازم آرایشی و بهداشتی": ["رژلب","لاک‌ناخن","عطر","برس‌مو","سشوار","آینه‌جیبی","کرم","پنبه","حوله‌حمام","وان‌حمام","دوش","شانه","ناخن‌گیر","اسپری‌مو"],
   "وسایل اداری و تجاری": ["پرینتر","فکس","تلفن‌رومیزی","کیف‌اداری","پوشه‌فایل","استپلر","گیره‌کاغذ","تقویم‌رومیزی","وایت‌برد","پروژکتور","میزکار","صندلی‌اداری","برچسب‌قیمت","صندوق‌پول"],
   "حمل‌ونقل آینده‌نگر": ["ماشین‌پرنده","ربات‌غول‌پیکر","جت‌پک","پرتاب‌کننده‌موشک","ماهواره‌مخابراتی","کاوشگر‌مریخ","پهپاد","ماشین‌خودران","جلیقه‌جت‌پکی"],
+
+  "لوازم برقی آشپزخانه": [
+    "یخچال","فریزر","ماشین ظرفشویی","ماشین لباسشویی","مایکروویو",
+    "توستر","غذاساز","مخلوط‌کن","آبمیوه‌گیری","چای‌ساز",
+    "قهوه‌ساز","پلوپز","سرخ‌کن","بخارپز","همزن برقی",
+    "چرخ گوشت","خمیرگیر","ماست‌ساز","بستنی‌ساز","آب‌سردکن"
+  ],
+  "اتاق نشیمن": [
+    "مبل راحتی","کاناپه","صندلی چرخ‌دار","مبل دونفره","مبل سه‌نفره",
+    "پوف","میز جلومبلی","میز عسلی","آباژور","چراغ مطالعه",
+    "شمعدان","گلدان","تابلو خطاطی","ساعت ایستاده","بوفه",
+    "ویترین","کنسول","شومینه","آکواریوم","میز تلویزیون"
+  ],
+  "اتاق خواب": [
+    "تخت دونفره","تخت یک‌نفره","تخت کودک","پاتختی","دراور",
+    "آینه قدی","جاکفشی","جالباسی","کوسن","لحاف",
+    "تشک طبی","روتختی","پتوی مسافرتی","چراغ خواب","ساعت رومیزی",
+    "تابلو بالای تخت","بادگیر کولر","کولر آبی","بخاری برقی","پنکه سقفی"
+  ],
+  "حمام و سرویس بهداشتی": [
+    "وان حمام","دوش","سینک","روشویی","شیر آب",
+    "دوش‌گیر","حوله","دمپایی حمام","لیف","صابون مایع",
+    "شامپو","نرم‌کننده","ماسک مو","خمیردندان","مسواک",
+    "نخ دندان","دهانشویه","جاکاغذی","سبد لباس","آینه روشویی"
+  ],
+  "حیاط و باغ": [
+    "نیمکت حیاط","تاب","سرسره","استخر","فواره",
+    "چمن","گل‌کاری","نرده","درب حیاط","پیاده‌رو",
+    "آلاچیق","منقل","باربیکیو","باغچه","درخت میوه",
+    "آویز گل","گلدان بزرگ","چراغ حیاط","آبپاش","شیلنگ آب"
+  ],
+  "حیوانات مزرعه": [
+    "اسب نر","مادیان","کره اسب","گاو نر","گاو شیری",
+    "گوساله","قوچ","میش","بره","بز نر",
+    "بز ماده","بزغاله","خروس","مرغ تخمگذار","جوجه",
+    "اردک مادر","جوجه اردک","غاز","بوقلمون","خرگوش اهلی"
+  ],
+  "حیوانات جنگل ایران": [
+    "خرس قهوه‌ای","خرس سیاه","پلنگ ایرانی","یوزپلنگ ایرانی","گرگ خاکستری",
+    "روباه قرمز","شغال","کفتار","کاراکال","سیاه‌گوش",
+    "گربه وحشی","سمور سنگی","راسو","قاقم","سنجاب ایرانی",
+    "موش خرما","خارپشت","خرگوش وحشی","تشی","گورکن"
+  ],
+  "حیوانات قطبی و کوهستانی": [
+    "خرس قطبی","پنگوئن","فوک قطبی","شیر دریایی","والروس",
+    "روباه قطبی","گرگ قطبی","گوزن شمالی","آهوی کوهی","بز کوهی",
+    "قوچ کوهی","پلنگ برفی","ببر سیبری","گربه وحشی اروپا","مارموت",
+    "سنجاب زمینی","عقاب طلایی","شاهین کوهی","کرکس","قرقی"
+  ],
+  "حیوانات بیابانی": [
+    "شتر","شتر یک‌کوهان","شتر دوکوهان","سوسمار بیابانی","مار شتری",
+    "عقرب","رطیل","بزمجه","مارمولک","آفتاب‌پرست",
+    "روباه صحرایی","جربوآ","موش صحرایی","خرگوش صحرایی","یوزپلنگ",
+    "گربه شنی","شاهین بیابانی","جغد بیابانی","سوسک سیاه","سوسک طلایی"
+  ],
+  "حیوانات اهلی اضافی": [
+    "گربه سیامی","گربه پرشین","گربه خیابانی","سگ نگهبان","سگ شکاری",
+    "سگ گله","سگ آپارتمانی","همستر","خوکچه هندی","خرگوش خانگی",
+    "لاک‌پشت خانگی","ماهی گوپی","طوطی خانگی","کاسکو","مرغ عشق",
+    "قناری زرد","فنچ","سنجاب خانگی","ایگوآنا","سمندر خانگی"
+  ],
+  "حیوانات آفریقا": [
+    "شیر نر","شیر ماده","ببر بنگال","پلنگ آفریقایی","فیل آفریقایی",
+    "کرگدن","اسب آبی","زرافه","گورخر","گاومیش آفریقایی",
+    "بوفالو","آنتلوپ","غزال","ایمپالا","بابون",
+    "میمون رزوس","شامپانزه","گوریل","اورانگوتان","لمور دم‌حلقه‌ای"
+  ],
+  "پرندگان زینتی": [
+    "طوطی برزیلی","طوطی کاکادو","عروس هلندی","سهره","بلبل",
+    "عندلیب","توکا","سار","مینا","زاغی",
+    "کلاغ سیاه","کلاغ ابلق","جیجاق","دارکوب","هدهد",
+    "سبزقبا","مرغ بهشتی","قو","پلیکان","مرغ ماهیخوار"
+  ],
+  "حشرات و بی‌مهرگان": [
+    "سوسک","سوسری","ساس","کک","شپش",
+    "موریانه","مورچه سیاه","مورچه قرمز","زنبور عسل","زنبور سرخ",
+    "پروانه رنگین","پروانه مونارک","شب‌پره","بید","سنجاقک",
+    "آسیابک","ملخ","جیرجیرک","خرخاکی","کرم خاکی"
+  ],
+  "جانوران دریایی اضافی": [
+    "کوسه سفید","کوسه ببری","کوسه سرچکشی","نهنگ آبی","نهنگ قاتل",
+    "نهنگ گوژپشت","عروس دریایی","اختاپوس غول‌پیکر","ماهی مرکب","صدف مروارید",
+    "ستاره دریایی","خیار دریایی","خرچنگ","لابستر","میگو",
+    "شاه‌میگو","فک","شیر دریایی","پنگوئن امپراتور","اسب دریایی"
+  ],
+  "ماهی‌های آب شیرین": [
+    "قزل‌آلای رنگین‌کمان","ماهی آزاد","ماهی کپور","ماهی گلی","ماهی حوض",
+    "ماهی آنجل","ماهی گورامی","ماهی زبرا","ماهی گوپی","ماهی پلاتی",
+    "ماهی اسکار","ماهی فایتر","ماهی کت‌فیش","ماهی نئون","ماهی دیسکاس",
+    "ماهی شارک","ماهی رنگین‌کمان","ماهی سیچلاید","ماهی لوچ","ماهی سورم"
+  ],
+  "میوه‌های گرمسیری": [
+    "آناناس","انبه","پاپایا","گواوا","مانگوستین",
+    "لیچی","دوریان","رامبوتان","نارگیل","پشن فروت",
+    "میوه اژدها","کارامبولا","آووکادو","خرما","انجیر",
+    "کاکی","فیجوا","گریپ فروت قرمز","نارگیل خشک","خرمالوی گرمسیری"
+  ],
+  "سبزیجات برگ‌دار": [
+    "اسفناج","کاهو","کاهو پیچ","کلم بروکلی","کلم بروکسل",
+    "گل کلم","کلم چینی","جعفری","گشنیز","شوید",
+    "ریحان","نعنا","پونه","آویشن","مرزه",
+    "ترخون","رزماری","برگ چغندر","برگ مو","برگ انگور"
+  ],
+  "سبزیجات ریشه‌ای": [
+    "هویج","شلغم","چغندر","ترب","تربچه",
+    "پیاز","پیازچه","سیر","موسیر","زنجبیل",
+    "زردچوبه","سیب‌زمینی شیرین","کدو حلوایی","بادمجان","کدو سبز",
+    "خیار","گوجه","فلفل دلمه‌ای","فلفل تند","فلفل سبز"
+  ],
+  "حبوبات و غلات": [
+    "لوبیا چیتی","لوبیا قرمز","لوبیا چشم‌بلبلی","نخود","عدس",
+    "ماش","باقلا","لپه","ذرت","گندم",
+    "جو","برنج","جو دوسر","ارزن","کینوا",
+    "کنجد","تخم کتان","تخم آفتابگردان","تخم کدو","تخم شربتی"
+  ],
+  "آجیل و خشکبار": [
+    "پسته","بادام","گردو","فندق","بادام هندی",
+    "بادام زمینی","تخمه کدو","تخمه آفتابگردان","تخمه ژاپنی","کشمش",
+    "مویز","خرمای خشک","انجیر خشک","توت خشک","آلو بخارا",
+    "برگه هلو","برگه زردآلو","برگه سیب","قیسی","آلبالو خشک"
+  ],
+  "شیرینی‌های سنتی ایرانی": [
+    "باقلوا","نان برنجی","کلوچه","زولبیا","بامیه",
+    "گوش‌فیل","پولکی","نبات","شکلات","آبنبات",
+    "تافی","سوهان","گز","پشمک","حلوای ارده",
+    "حلوای زعفرانی","فرنی","شله زرد","رنگینک","حلوا شکری"
+  ],
+  "شیرینی‌های فرنگی": [
+    "کیک شکلاتی","کیک وانیلی","چیزکیک","تیرامیسو","ماکارون",
+    "کروسان","دانمارکی","پنکیک","وافل","براونی",
+    "مافین","کاپ‌کیک","دونات","بیسکویت","شکلات تخته‌ای",
+    "آیس‌کرم","بستنی قیفی","پودینگ","ژله","پروفیترول"
+  ],
+  "نوشیدنی‌های گرم": [
+    "چای سیاه","چای سبز","چای سفید","چای اولانگ","دمنوش بابونه",
+    "دمنوش نعنا","دمنوش آویشن","دمنوش گل محمدی","دمنوش زعفران","دمنوش دارچین",
+    "قهوه ترک","قهوه اسپرسو","قهوه آمریکانو","قهوه لاته","کاپوچینو",
+    "موکا","ماکیاتو","هات چاکلت","شیر گرم","آب جوش"
+  ],
+  "نوشیدنی‌های سرد": [
+    "آب معدنی","آب گازدار","لیموناد","شربت آلبالو","شربت بیدمشک",
+    "شربت بهارنارنج","شربت خاکشیر","شربت سکنجبین","شربت زعفران","شربت انار",
+    "شربت توت‌فرنگی","اسموتی موز","اسموتی انبه","میلک‌شیک","آب‌پرتقال",
+    "آب‌سیب","آب‌هویج","دوغ","نوشابه","آب‌هندوانه"
+  ],
+  "غذاهای ایرانی": [
+    "قورمه سبزی","قیمه بادمجان","قیمه","فسنجان","خورش کرفس",
+    "خورش بادمجان","خورش آلو اسفناج","دیزی","آبگوشت","کله پاچه",
+    "حلیم","آش رشته","آش دوغ","آش شله قلمکار","کشک بادمجان",
+    "میرزاقاسمی","ته‌چین","زرشک پلو","باقالی پلو","لوبیا پلو"
+  ],
+  "غذای فست فود": [
+    "پیتزا مخصوص","پیتزا پپرونی","پیتزا مرغ","پیتزا سبزیجات","همبرگر",
+    "چیزبرگر","دوبل برگر","ساندویچ سوسیس","ساندویچ کالباس","هات‌داگ",
+    "ساندویچ مرغ","ساندویچ فلافل","ساندویچ شاورما","ساندویچ دنر","تاکو",
+    "بوریتو","ناگت مرغ","سیب‌زمینی سرخ‌کرده","پیاز حلقه‌ای","چیکن استریپس"
+  ],
+  "پوشاک مردانه": [
+    "پیراهن مردانه","پیراهن آستین کوتاه","پیراهن آستین بلند","شلوار پارچه‌ای","شلوار جین",
+    "شلوار کتان","شلوارک","تی‌شرت یقه گرد","تی‌شرت یقه هفت","پولوشرت",
+    "کاپشن","کت چرم","کت اسپرت","سویشرت","هودی",
+    "کت شلوار","کراوات","پاپیون","جلیقه","کمربند"
+  ],
+  "پوشاک زنانه": [
+    "مانتو","پالتو","بارانی","شال","روسری",
+    "مقنعه","چادر","شلوار پارچه‌ای زنانه","شلوار جین زنانه","دامن کوتاه",
+    "دامن بلند","دامن پیلیسه","بلوز","تونیک","شومیز",
+    "پیراهن مجلسی","لباس شب","لباس عروسی","لباس نامزدی","کت زنانه"
+  ],
+  "پوشاک بچگانه": [
+    "سرهمی نوزاد","بادی نوزاد","شورتک نوزاد","بلوز بچگانه","شلوار بچگانه",
+    "دامن بچگانه","پیراهن بچگانه","سویشرت بچگانه","کلاه بچگانه","دستکش بچگانه",
+    "شال گردن بچگانه","جوراب بچگانه","کاپشن بچگانه","روپوش مدرسه","پیش‌بند",
+    "لباس خواب بچگانه","لباس شنا بچگانه","کفش بچگانه","کوله پشتی بچگانه","جعبه غذای بچگانه"
+  ],
+  "کفش و کیف": [
+    "کفش ورزشی","کفش رسمی","کفش مجلسی","کفش پاشنه بلند","کفش پاشنه کوتاه",
+    "کفش تخت","صندل","دمپایی","دمپایی لاانگشتی","صندل بندی",
+    "نیم‌بوت","بوت","چکمه","چکمه بارانی","کتانی",
+    "اسنیکر","کیف دستی","کیف دوشی","کیف پول","کوله پشتی مدرسه"
+  ],
+  "جواهرات و زیورآلات": [
+    "انگشتر طلا","انگشتر نقره","حلقه ازدواج","حلقه نامزدی","گردنبند طلا",
+    "گردنبند نقره","دستبند طلا","دستبند نقره","النگو","گوشواره طلا",
+    "گوشواره آویز","گوشواره حلقه‌ای","آویز گردن","پلاک","مدال",
+    "سنجاق سینه","سنجاق کراوات","ساعت مچی طلا","ساعت مچی نقره","ست جواهرات"
+  ],
+  "لوازم آرایشی": [
+    "رژلب","رژ گونه","ریمل","خط چشم","مداد چشم",
+    "سایه چشم","پالت سایه","کرم پودر","کرم ضدآفتاب","کرم مرطوب‌کننده",
+    "کرم شب","لوسیون","تونر","میسلار واتر","پرایمر",
+    "کانسیلر","هایلایتر","برنزر","لاک ناخن","پاک‌کننده لاک"
+  ],
+  "لوازم بهداشتی": [
+    "مسواک برقی","خمیردندان","دهانشویه","نخ دندان","صابون",
+    "شامپو","نرم‌کننده مو","ماسک مو","روغن مو","ژل مو",
+    "اسپری مو","برس مو","شانه","سشوار","اتوی مو",
+    "ماشین اصلاح","تیغ ریش‌تراشی","خمیر اصلاح","افترشیو","ادکلن"
+  ],
+  "اسباب‌بازی": [
+    "لگو","ماشین کنترلی","هلیکوپتر کنترلی","ربات اسباب بازی","عروسک باربی",
+    "عروسک نوزاد","خرس عروسکی","عروسک انگشتی","عروسک نمایشی","مکعب روبیک",
+    "پازل","پازل سه‌بعدی","تخته سیاه","ماژیک وایت‌برد","توپ پلاستیکی",
+    "توپ فوتبال کوچک","راکت بدمینتون","طناب بازی","اسکوتر بچگانه","دوچرخه سه‌چرخ"
+  ],
+  "بازی‌های فکری و رومیزی": [
+    "شطرنج","تخته نرد","منچ","مار و پله","دومینو",
+    "اسکربل","مونوپولی","کلوکودو","سودوکو","پازل هزارتکه",
+    "جورچین","بازی حافظه","اسم فامیل","شهر بازی","دوز",
+    "نقطه‌بازی","حدس کلمه","بازی حقیقت","بازی مافیا","بازی پانتومیم"
+  ],
+  "شخصیت‌های کارتونی معروف": [
+    "میکی موس","مینی موس","دونالد داک","دیزی داک","تام",
+    "جری","باگزبانی","دافی داک","پورکی پیگ","سیلوستر",
+    "تویتی","تاز دیویل","پیکاچو","هلو کیتی","پاپای",
+    "مستر بین","شرک","فیونا","دانکی","سیمبا"
+  ],
+  "ابزارآلات": [
+    "چکش","پتک","انبردست","دم‌باریک","قیچی فلزبری",
+    "اره دستی","اره برقی","پیچ‌گوشتی","پیچ‌گوشتی برقی","آچار",
+    "آچار فرانسه","آچار آلن","متر","متر پارچه‌ای","متر لیزری",
+    "تراز","شاقول","پرگار نجاری","سمباده","فرچه سیمی"
+  ],
+  "لوازم الکترونیکی": [
+    "تلفن همراه","گوشی هوشمند","تبلت","لپ‌تاپ","کامپیوتر رومیزی",
+    "مانیتور","کیبورد","ماوس","اسپیکر","هدفون",
+    "هندزفری","میکروفون","وبکم","پرینتر","اسکنر",
+    "دوربین عکاسی","دوربین فیلمبرداری","فلش مموری","هارد اکسترنال","مودم"
+  ],
+  "وسایل نقلیه جاده‌ای": [
+    "سواری","وانت","کامیون","کامیونت","اتوبوس",
+    "مینی‌بوس","ون","تاکسی","تاکسی اینترنتی","تاکسی خطی",
+    "اتوبوس برقی","تراموا","قطار","قطار سریع‌السیر","مترو",
+    "ماشین برقی","ماشین هیبریدی","لیفتراک","تراکتور","بولدوزر"
+  ],
+  "وسایل نقلیه دریایی و هوایی": [
+    "کشتی باری","کشتی مسافربری","کشتی تفریحی","قایق موتوری","قایق پارویی",
+    "قایق بادبانی","یدک‌کش","زیردریایی","جت‌اسکی","هاورکرافت",
+    "هلیکوپتر","هواپیمای مسافربری","هواپیمای جنگنده","جت شخصی","گلایدر",
+    "بالن","کشتی هوایی","پهپاد","موشک","شاتل فضایی"
+  ],
+  "اتومبیل‌های معروف": [
+    "پژو ۲۰۶","پژو ۴۰۵","سمند","دنا","تیبا",
+    "ساینا","کوییک","شاهین","پراید","پیکان",
+    "رنو","هیوندای","کیا","تویوتا","بنز",
+    "بی‌ام‌و","آئودی","پورشه","فراری","لامبورگینی"
+  ],
+  "سازها": [
+    "گیتار کلاسیک","گیتار الکتریک","گیتار بیس","پیانو","پیانوی دیجیتال",
+    "کیبورد","ویولن","ویولن‌سل","کنترباس","ویولا",
+    "فلوت","نی","کلارینت","ساکسیفون","ترومپت",
+    "ترومبون","هورن","توبا","طبل","دف"
+  ],
+  "مشاغل خدماتی": [
+    "راننده تاکسی","راننده اتوبوس","راننده کامیون","پستچی","پیشخدمت",
+    "باریستا","فروشنده","صندوق‌دار","نگهبان","سرایدار",
+    "نظافتچی","آرایشگر مردانه","آرایشگر زنانه","خیاط","کفاش",
+    "ساعت‌ساز","طلاساز","عینک‌ساز","قالی‌شوی","خشکشویی"
+  ],
+  "مشاغل پزشکی": [
+    "پزشک عمومی","متخصص قلب","متخصص مغز و اعصاب","متخصص پوست","متخصص چشم",
+    "دندانپزشک","داروساز","پرستار","بهیار","ماما",
+    "رادیولوژیست","آزمایشگاهدار","فیزیوتراپیست","روانپزشک","روانشناس",
+    "دامپزشک","جراح","بیهوشی","اورژانس","امدادگر"
+  ],
+  "مشاغل هنری": [
+    "نقاش","خطاط","مجسمه‌ساز","عکاس","فیلمبردار",
+    "کارگردان","بازیگر","خواننده","نوازنده","آهنگساز",
+    "طراح گرافیک","طراح لباس","طراح داخلی","معمار","نویسنده",
+    "شاعر","مترجم","روزنامه‌نگار","گوینده","دوبلور"
+  ],
+  "ورزش‌های متنوع": [
+    "فوتبال","بسکتبال","والیبال","هندبال","تنیس",
+    "تنیس روی میز","بدمینتون","اسکواش","گلف","راگبی",
+    "فوتبال آمریکایی","بیسبال","کریکت","هاکی روی یخ","هاکی روی چمن",
+    "بولینگ","بیلیارد","اسنوکر","دارت","پینت‌بال"
+  ],
+  "مکان‌های شهری": [
+    "خیابان","کوچه","میدان","چهارراه","بزرگراه",
+    "پل عابر پیاده","پیاده‌رو","پارکینگ","ایستگاه اتوبوس","ایستگاه مترو",
+    "ایستگاه تاکسی","ایستگاه قطار","فرودگاه","بندرگاه","ترمینال",
+    "بازار","پاساژ","سوپرمارکت","فروشگاه زنجیره‌ای","داروخانه"
+  ],
+  "مکان‌های طبیعی": [
+    "کوه","قله","دره","دشت","جنگل",
+    "بیشه","مرتع","چراگاه","بیابان","کویر",
+    "ساحل شنی","صخره","شبه‌جزیره","خلیج","دریاچه",
+    "رودخانه","چشمه","آبشار","تالاب","دلتا"
+  ],
+  "شکل‌های هندسی و هندسه": [
+    "دایره","بیضی","مربع","مستطیل","مثلث",
+    "لوزی","ذوزنقه","متوازی‌الاضلاع","پنج‌ضلعی","شش‌ضلعی",
+    "هفت‌ضلعی","هشت‌ضلعی","مکعب","استوانه","مخروط",
+    "کره هندسی","هرم","منشور","استوانه توخالی","کره توخالی"
+  ],
+  "احساسات و حالات": [
+    "خنده","گریه","خشم","ترس","تعجب",
+    "شادی","غم","اضطراب","آرامش","خجالت",
+    "حسادت","دلتنگی","عشق","نفرت","امید",
+    "ناامیدی","هیجان","کسالت","کنجکاوی","اعتماد"
+  ],
 };
 
-/* Flatten all categories into one word list, and remember which category
-   each word belongs to (first category wins on duplicates). */
 const WORDS = [];
 const WORD_CATEGORY_OF = new Map();
 for(const [cat, list] of Object.entries(WORD_CATEGORIES)){
@@ -166,10 +489,6 @@ function pickWords(usedSet, n){
   return out;
 }
 function buildOptions(word){
-  /* Make the multiple-choice options harder by preferring distractors from
-     the SAME category as the answer (e.g. other wild animals, other fruits)
-     instead of totally unrelated random words. Falls back to other
-     categories only if a category doesn't have enough words on its own. */
   const needed = 9;
   const cat = WORD_CATEGORY_OF.get(word);
   const sameCategory = WORDS.filter(w=> w !== word && WORD_CATEGORY_OF.get(w) === cat);
@@ -190,7 +509,7 @@ function newRoom(code, hostId){
     code, hostId, status:'lobby', rounds:2, turnSeconds:60,
     players: new Map(), turnOrder: [], currentRound:1, currentTurnIndex:-1,
     currentDrawerId:null, turnSeq:0, currentWord:null, currentOptions:[],
-    usedWords: new Set(), turnStartAt:0, turnEndAt:0, guessedIds: new Set(), turnScores:{},
+    usedWords: new Set(), turnStartAt:0, turnEndAt:0, guessedIds:new Set(), turnScores:{},
     currentStrokes: [], turnTimer:null, advanceTimer:null, emptyCleanupTimer:null,
     answers: {}, nextTurnInfo: null, isPreGame: false, isPublic: false, name: '',
     readyCountdownEndAt: 0, readyCountdownTimer: null
@@ -199,7 +518,7 @@ function newRoom(code, hostId){
 
 function activePlayers(room){ return Array.from(room.players.values()).filter(p=>p.connected); }
 function nextFreeColorIdx(room){
-  const used = new Set(Array.from(room.players.values()).map(p=>p.colorIdx));
+  const used = new Set(activePlayers(room).map(p=>p.colorIdx));
   for(let i=0;i<8;i++) if(!used.has(i)) return i;
   return room.players.size;
 }
@@ -261,22 +580,23 @@ function broadcastCanvas(room){
 }
 
 function clearRoomTimers(room){
-  clearTimeout(room.turnTimer); clearTimeout(room.advanceTimer); clearTimeout(room.emptyCleanupTimer);
+  clearTimeout(room.turnTimer);
+  clearTimeout(room.advanceTimer);
+  clearTimeout(room.emptyCleanupTimer);
 }
 function scheduleEmptyCleanup(room){
   const anyConnected = activePlayers(room).length > 0;
   if(anyConnected) return;
   clearTimeout(room.emptyCleanupTimer);
-  /* Short grace period only to survive a quick page refresh/reconnect blip
-     for the last remaining player — not a long-lived "empty room" state.
-     The room is hidden from the public list immediately either way (see
-     listPublicRooms), so nobody can join an empty room during this window. */
   room.emptyCleanupTimer = setTimeout(()=>{
-    if(activePlayers(room).length === 0){ clearRoomTimers(room); rooms.delete(room.code); }
+    if(activePlayers(room).length === 0){
+      clearRoomTimers(room);
+      rooms.delete(room.code);
+      broadcastPublicRooms();
+    }
   }, 20*1000);
 }
 
-/* ---- turn computation ---- */
 function computeNextTurnInfo(room){
   let idx = room.currentTurnIndex + 1;
   let round = room.currentRound;
@@ -326,22 +646,16 @@ function evaluateReadyState(room){
   if(total < 2){ clearReadyCountdown(room); return; }
   const readyCount = players.filter(p=>p.ready).length;
   if(readyCount === total){
+    /* وقتی همه‌ی بازیکن‌ها آماده‌اند، غافل‌گیرکننده نیست و بازی خودکار شروع می‌شود */
     clearReadyCountdown(room);
     startGameForRoom(room);
     return;
   }
-  if(total >= 4 && readyCount > total/2){
-    if(!room.readyCountdownEndAt){
-      room.readyCountdownEndAt = Date.now() + READY_COUNTDOWN_MS;
-      room.readyCountdownTimer = setTimeout(()=>{
-        room.readyCountdownTimer = null;
-        room.readyCountdownEndAt = 0;
-        if(room.status === 'lobby') startGameForRoom(room);
-      }, READY_COUNTDOWN_MS);
-    }
-  } else {
-    clearReadyCountdown(room);
-  }
+  /* دیگر با اکثریت (نه همه) به‌صورت خودکار و بدون اقدام میزبان بازی شروع
+     نمی‌شود؛ میزبان همچنان می‌تواند با دکمه‌ی «شروع بازی» با اکثریت آماده
+     شروع کند، ولی بازیکن‌هایی که مشغول کاری دیگر (مثل تنظیم اسم) هستند
+     ناگهانی وارد بازی نمی‌شوند. */
+  clearReadyCountdown(room);
 }
 
 function startGameForRoom(room){
@@ -369,6 +683,7 @@ function startGameForRoom(room){
   room.isPreGame = true;
   room.status = 'turnEnd';
   broadcastState(room);
+  broadcastPublicRooms();
   clearTimeout(room.advanceTimer);
   room.advanceTimer = setTimeout(()=> advanceTurn(room), ADVANCE_DELAY);
   return true;
@@ -412,20 +727,114 @@ function checkAllGuessedOrEnd(room){
   if(allAnswered) endTurn(room);
 }
 
+/* ---- پایان بازی وقتی فقط یک نفر مونده ---- */
+function endGameWithSoloPlayer(room){
+  clearRoomTimers(room);
+  clearReadyCountdown(room);
+  room.status = 'final';
+  room.currentWord = null;
+  room.currentOptions = [];
+  room.nextTurnInfo = null;
+  room.isPreGame = false;
+  broadcastState(room);
+  broadcastPublicRooms();
+}
+
+function checkSoloVictory(room){
+  if(room.status === 'lobby' || room.status === 'final') return false;
+  if(room.players.size === 1 && activePlayers(room).length === 1){
+    endGameWithSoloPlayer(room);
+    return true;
+  }
+  return false;
+}
+
+/* جدا کردن یک بازیکن از اتاق (leaveRoom یا اتمام مهلت disconnect) */
+function handlePlayerLeave(room, playerId){
+  const player = room.players.get(playerId);
+  if(!player) return;
+
+  if(player.disconnectTimer){
+    clearTimeout(player.disconnectTimer);
+    player.disconnectTimer = null;
+  }
+
+  const wasHost = room.hostId === playerId;
+  room.players.delete(playerId);
+
+  if(wasHost){
+    const next = activePlayers(room)[0];
+    room.hostId = next ? next.id : null;
+  }
+
+  if(room.players.size === 0){
+    clearRoomTimers(room);
+    rooms.delete(room.code);
+    broadcastPublicRooms();
+    return;
+  }
+
+  if(checkSoloVictory(room)){
+    broadcastPublicRooms();
+    scheduleEmptyCleanup(room);
+    return;
+  }
+
+  if(room.status === 'drawing' && room.currentDrawerId === playerId){
+    endTurn(room);
+  } else if(room.status === 'turnEnd' && room.nextTurnInfo && room.nextTurnInfo.drawerId === playerId){
+    if(room.nextTurnInfo.word) room.usedWords.delete(room.nextTurnInfo.word);
+    room.nextTurnInfo = computeNextTurnInfo(room);
+    broadcastState(room);
+  } else {
+    evaluateReadyState(room);
+    checkAllGuessedOrEnd(room);
+    broadcastState(room);
+  }
+  broadcastPublicRooms();
+  scheduleEmptyCleanup(room);
+}
+
+/* ============================= لیست عمومی زنده ============================= */
+function broadcastPublicRooms(){
+  const list = [];
+  rooms.forEach(room=>{
+    if(!room.isPublic || room.status !== 'lobby') return;
+    const count = activePlayers(room).length;
+    if(count === 0 || count >= 8) return;
+    list.push({ code: room.code, roomName: room.name || 'اتاق بازی', playerCount: count });
+  });
+  list.sort((a,b)=> b.playerCount - a.playerCount);
+  const payload = JSON.stringify({type:'publicRoomsList', rooms: list});
+  liveConns.forEach(conn=>{
+    if(conn.roomCode) return;
+    try{ conn.socket.write(encodeFrame(0x1, Buffer.from(payload, 'utf8'))); }catch(e){}
+  });
+}
+
 /* ============================= message handling ============================= */
 function handleMessage(conn, msg){
   if(!msg || typeof msg.type !== 'string') return;
   const type = msg.type;
 
   if(type === 'rejoin'){
-    const code = String(msg.code||'').toUpperCase();
+    const code = toEnDigits(String(msg.code||'')).toUpperCase();
     const room = rooms.get(code);
     const tempPlayer = {socket: conn.socket, connected:true};
     if(!room){ send(tempPlayer,'errorMsg',{message:'این اتاق دیگر وجود ندارد', fatal:true}); return; }
     const player = room.players.get(String(msg.playerId||''));
     if(!player){ send(tempPlayer,'errorMsg',{message:'اطلاعات بازیکن پیدا نشد', fatal:true}); return; }
+    /* اگر همین بازیکن از یک اتصال زنده‌ی دیگری (مثلاً یک تب دیگر) وصل بود،
+       قبل از جایگزینی، به آن اتصالِ قدیمی خبر بده و آن را ببند تا آن تب
+       بی‌سروصدا و بدون توضیح از کار نیفتد */
+    if(player.connected && player.socket && player.socket !== conn.socket){
+      send(player, 'errorMsg', {message:'این حساب از یک صفحه‌ی دیگر به این اتاق وصل شد', fatal:true});
+      try{ player.socket.end(); }catch(e){}
+    }
     player.socket = conn.socket;
     player.connected = true;
+    /* تایمر قطعی رو کنسل کن چون کاربر برگشت */
+    if(player.disconnectTimer){ clearTimeout(player.disconnectTimer); player.disconnectTimer = null; }
     conn.roomCode = code; conn.playerId = player.id;
     clearTimeout(room.emptyCleanupTimer);
     if(room.hostId && !room.players.get(room.hostId)){ room.hostId = player.id; }
@@ -435,15 +844,19 @@ function handleMessage(conn, msg){
     return;
   }
   if(type === 'createRoom'){
-    const code = genRoomCode();
+    let code = genRoomCode();
+    while(rooms.has(code)) code = genRoomCode();
     const id = genId('p');
     const room = newRoom(code, id);
     room.name = String(msg.roomName||'').trim().slice(0,24) || 'اتاق بازی';
-    room.players.set(id, {id, name: 'بازیکن1', colorIdx:0, score:0, connected:true, ready:false, socket: conn.socket});
+    const preferred = makeUniqueName(room, msg.preferredName);
+    const initialName = preferred || 'بازیکن1';
+    room.players.set(id, {id, name: initialName, colorIdx:0, score:0, connected:true, ready:false, socket: conn.socket, disconnectTimer:null});
     rooms.set(code, room);
     conn.roomCode = code; conn.playerId = id;
     send(room.players.get(id), 'joined', {code, playerId:id, isHost:true});
     broadcastState(room);
+    broadcastPublicRooms();
     return;
   }
   if(type === 'listPublicRooms'){
@@ -460,20 +873,29 @@ function handleMessage(conn, msg){
     return;
   }
   if(type === 'joinRoom'){
-    const code = String(msg.code||'').toUpperCase();
+    const code = toEnDigits(String(msg.code||'')).toUpperCase();
     const room = rooms.get(code);
     const tempPlayer = {socket: conn.socket, connected:true};
     if(!room){ send(tempPlayer,'errorMsg',{message:'اتاقی با این کد پیدا نشد'}); return; }
+
+    if(msg.viaPublicList && !room.isPublic){
+      send(tempPlayer,'errorMsg',{message:'این اتاق دیگه عمومی نیست — برای ورود باید کد داشته باشی'});
+      return;
+    }
+
     if(room.status !== 'lobby'){ send(tempPlayer,'errorMsg',{message:'این بازی شروع شده؛ برای دور بعد صبر کن'}); return; }
     if(activePlayers(room).length >= 8){ send(tempPlayer,'errorMsg',{message:'اتاق پر است (حداکثر ۸ بازیکن)'}); return; }
     const id = genId('p');
     const colorIdx = nextFreeColorIdx(room);
+    const preferred = makeUniqueName(room, msg.preferredName);
     const defaultName = 'بازیکن' + (activePlayers(room).length + 1);
-    room.players.set(id, {id, name: defaultName, colorIdx, score:0, connected:true, ready:false, socket: conn.socket});
+    const initialName = preferred || defaultName;
+    room.players.set(id, {id, name: initialName, colorIdx, score:0, connected:true, ready:false, socket: conn.socket, disconnectTimer:null});
     conn.roomCode = code; conn.playerId = id;
     send(room.players.get(id), 'joined', {code, playerId:id, isHost:false});
     evaluateReadyState(room);
     broadcastState(room);
+    broadcastPublicRooms();
     return;
   }
 
@@ -483,7 +905,7 @@ function handleMessage(conn, msg){
   if(!player) return;
 
   if(type === 'updateName'){
-    const newName = String(msg.name||'').trim().slice(0,16);
+    const newName = sanitizeName(msg.name);
     if(!newName) return;
     player.name = newName;
     broadcastState(room);
@@ -504,6 +926,7 @@ function handleMessage(conn, msg){
     if(msg.turnSeconds) room.turnSeconds = clamp(parseInt(msg.turnSeconds,10) || room.turnSeconds, 15, 180);
     if(typeof msg.isPublic === 'boolean') room.isPublic = msg.isPublic;
     broadcastState(room);
+    broadcastPublicRooms();
   }
   else if(type === 'startGame'){
     if(room.hostId !== player.id || room.status !== 'lobby') return;
@@ -570,33 +993,20 @@ function handleMessage(conn, msg){
   }
   else if(type === 'playAgain'){
     if(room.hostId !== player.id || room.status !== 'final') return;
-    startGameForRoom(room);
+    if(!startGameForRoom(room)){
+      send(player, 'errorMsg', {message:'برای شروع دوباره به حداقل ۲ بازیکن نیاز است'});
+    }
   }
   else if(type === 'leaveRoom'){
-    room.players.delete(player.id);
     conn.roomCode = null; conn.playerId = null;
-    if(room.hostId === player.id){
-      const next = activePlayers(room)[0];
-      room.hostId = next ? next.id : null;
-    }
-    if(room.status === 'drawing' && room.currentDrawerId === player.id){
-      endTurn(room);
-    } else if(room.status === 'turnEnd' && room.nextTurnInfo && room.nextTurnInfo.drawerId === player.id){
-      if(room.nextTurnInfo.word) room.usedWords.delete(room.nextTurnInfo.word);
-      room.nextTurnInfo = computeNextTurnInfo(room);
-      broadcastState(room);
-    } else {
-      evaluateReadyState(room);
-      checkAllGuessedOrEnd(room);
-      broadcastState(room);
-    }
-    scheduleEmptyCleanup(room);
+    handlePlayerLeave(room, player.id);
   }
   else if(type === 'closeRoom'){
     if(room.hostId !== player.id) return;
     broadcastAll(room, 'roomClosed', {});
     clearRoomTimers(room);
     rooms.delete(room.code);
+    broadcastPublicRooms();
   }
 }
 
@@ -606,29 +1016,50 @@ function handleDisconnect(conn){
   if(!room) return;
   const player = room.players.get(conn.playerId);
   if(!player || !player.connected) return;
+  /* اگر این اتصال قبلاً با یک rejoin جدیدتر (مثلاً از تب دیگر) جایگزین شده،
+     دیگر اتصال فعلیِ این بازیکن نیست؛ نباید نشست جدید را قطع کند */
+  if(player.socket !== conn.socket) return;
   player.connected = false;
   player.socket = null;
 
   if(room.status === 'lobby'){
+    /* در لابی: حذف فوری */
     room.players.delete(player.id);
+    if(room.hostId === player.id){
+      const next = activePlayers(room)[0];
+      if(next) room.hostId = next.id;
+    }
     evaluateReadyState(room);
-  } else if(room.status === 'drawing'){
-    /* Keep the round going even if the drawer disconnects — the canvas
-       stays as-is, guessers can keep guessing, and the drawer can pick
-       their pencil back up the moment they reconnect (see 'rejoin'). */
-    checkAllGuessedOrEnd(room);
-  } else if(room.status === 'turnEnd'){
-    if(room.nextTurnInfo && room.nextTurnInfo.drawerId === player.id){
-      if(room.nextTurnInfo.word) room.usedWords.delete(room.nextTurnInfo.word);
-      room.nextTurnInfo = computeNextTurnInfo(room);
-      broadcastState(room);
+    broadcastState(room);
+    broadcastPublicRooms();
+    scheduleEmptyCleanup(room);
+    return;
+  }
+
+  if(room.status === 'final'){
+    /* بازی تمام شده و نوبتی در جریان نیست؛ جابه‌جایی فوری میزبان اینجا
+       امن است و باعث نمی‌شود بقیه برای «بازی دوباره» بی‌دلیل معطل بمانند */
+    if(room.hostId === player.id){
+      const next = activePlayers(room)[0];
+      if(next) room.hostId = next.id;
     }
   }
-  if(room.hostId === player.id){
-    const next = activePlayers(room)[0];
-    if(next) room.hostId = next.id;
-  }
+
+  /* در حین بازی: ۶۰ ثانیه فرصت برگشت داده می‌شود و در این مدت هیچ اتفاقی
+     نمی‌افتد — نه نوبت جلو می‌رود، نه میزبان یا نوبتِ بعدی عوض می‌شود.
+     بازی طبق روال عادی و با تایمرهای معمول خودش ادامه پیدا می‌کند. اگر
+     بازیکن بعد از ۱ دقیقه برنگردد، به‌منزله‌ی انصراف او در handlePlayerLeave
+     رسیدگی می‌شود (که آنجا نوبت/میزبان/برد تک‌نفره به‌درستی محاسبه می‌شود). */
+  if(player.disconnectTimer) clearTimeout(player.disconnectTimer);
+  player.disconnectTimer = setTimeout(()=>{
+    const p = room.players.get(player.id);
+    if(p && !p.connected){
+      handlePlayerLeave(room, player.id);
+    }
+  }, DISCONNECT_GRACE_MS);
+
   broadcastState(room);
+  broadcastPublicRooms();
   scheduleEmptyCleanup(room);
 }
 
@@ -639,7 +1070,6 @@ const server = http.createServer((req, res)=>{
   res.end(indexHtml);
 });
 
-const liveConns = new Set();
 server.on('upgrade', (req, socket)=>{
   if((req.headers['upgrade']||'').toLowerCase() !== 'websocket'){ socket.destroy(); return; }
   const key = req.headers['sec-websocket-key'];
