@@ -213,97 +213,200 @@ input,button,select,textarea{font-size:16px;}
 @keyframes hmRise{from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);}}
 
 /* ==================== HOME ==================== */
-.home-body{
-  flex:1;
-  display:grid; grid-template-columns:1.15fr .85fr;
-  min-height:0;
+.home-root::after{
+  content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
+  background-image:radial-gradient(rgba(168,166,255,.17) 1px, transparent 1.5px);
+  background-size:24px 24px;
+  -webkit-mask-image:linear-gradient(to bottom, #000 0%, transparent 60%);
+  mask-image:linear-gradient(to bottom, #000 0%, transparent 60%);
 }
-@media (max-width:900px){.home-body{grid-template-columns:1fr;}}
 
-.home-intro{
-  padding:var(--s14) var(--s10);
-  display:flex; flex-direction:column; justify-content:center;
-  border-left:1px solid rgba(255,255,255,.06);
+.home-stage{
+  flex:1; width:100%; max-width:1040px; margin:0 auto;
+  padding:var(--s10) var(--s6) var(--s12);
+  display:flex; flex-direction:column; align-items:center;
+  gap:var(--s10);
+}
+@media (max-width:900px){
+  .home-stage{padding:var(--s6) var(--s5) var(--s10); gap:var(--s8);}
+}
+
+.home-hero{
+  display:flex; flex-direction:column; align-items:center; text-align:center;
   animation:hmRise .55s cubic-bezier(.22,1,.36,1) both;
 }
-@media (max-width:900px){
-  .home-intro{
-    padding:var(--s10) var(--s5) var(--s8);
-    border-left:none;
-    border-bottom:1px solid rgba(255,255,255,.06);
-  }
-}
-
 .home-title{
   margin:0;
-  font-size:clamp(58px,8.5vw,92px);
-  font-weight:900; letter-spacing:-2.5px; line-height:.95;
+  font-size:clamp(60px,10vw,104px);
+  font-weight:900; letter-spacing:-2px; line-height:1.1;
   color:#fff;
 }
-.home-title .mark{
-  display:inline-block;
-  width:.2em; height:.2em; border-radius:50%;
-  background:var(--brand);
-  margin-inline-start:.12em;
-  transform:translateY(-.15em);
+.home-scribble{
+  width:min(280px,64%); height:auto;
+  color:var(--amber);
+  margin-top:calc(var(--s2) * -1);
 }
-
-.home-doodle{
-  width:200px; max-width:60%;
-  height:auto;
-  color:rgba(168,166,255,.7);
-  margin-top:var(--s4);
-}
-.home-doodle path{
-  stroke-dasharray:340; stroke-dashoffset:340;
-  animation:hmDraw 1.6s .35s cubic-bezier(.4,0,.2,1) forwards;
+.home-scribble path{
+  stroke-dasharray:1; stroke-dashoffset:1;
+  animation:hmDraw 1.1s .4s cubic-bezier(.4,0,.2,1) forwards;
 }
 @keyframes hmDraw{to{stroke-dashoffset:0;}}
-
-.home-desc{
-  margin:var(--s5) 0 0;
-  max-width:400px;
-  font-size:15px; font-weight:500; line-height:1.95;
+.home-tagline{
+  margin:var(--s5) 0 0; max-width:520px; text-wrap:balance;
+  font-size:16px; font-weight:500; line-height:1.95;
   color:var(--text-soft);
 }
-.home-desc b{color:var(--text); font-weight:700;}
+.home-tagline b{color:var(--text); font-weight:800;}
 
-.home-form-wrap{
-  padding:var(--s14) var(--s10);
-  display:flex; flex-direction:column; justify-content:center;
+.home-grid{
+  width:100%;
+  display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);
+  gap:var(--s10); align-items:center;
 }
 @media (max-width:900px){
-  .home-form-wrap{padding:var(--s8) var(--s5) var(--s10);}
-}
-.home-form{
-  width:100%; max-width:380px; margin:0 auto;
-  animation:hmRise .55s .1s cubic-bezier(.22,1,.36,1) both;
+  .home-grid{grid-template-columns:minmax(0,1fr); gap:var(--s8); max-width:480px;}
+  .home-panel{order:-1;}
 }
 
+/* ---- board preview (the game, drawing itself) ---- */
+.home-board{
+  min-width:0;
+  animation:hmRise .55s .08s cubic-bezier(.22,1,.36,1) both;
+}
+.hb-card{
+  padding:var(--s4);
+  display:flex; flex-direction:column; gap:var(--s3);
+  background:rgba(255,255,255,.025);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:22px;
+  box-shadow:0 40px 80px -40px rgba(0,0,0,.9);
+}
+@media (min-width:901px){ .hb-card{transform:rotate(-1.4deg);} }
+
+.hb-head{
+  display:flex; align-items:center; gap:var(--s3);
+  font-size:12px; font-weight:600; color:var(--text-soft);
+}
+.hb-head b{color:var(--text); font-weight:800;}
+.hb-avatar{
+  width:28px; height:28px; border-radius:50%; flex-shrink:0;
+  display:grid; place-items:center;
+  background:#FF6A5B; color:#fff; font-weight:800; font-size:12px;
+  border:2px solid rgba(255,255,255,.2);
+}
+.hb-bar{
+  position:relative; flex:1; min-width:40px; height:5px;
+  background:rgba(255,255,255,.06); border-radius:999px; overflow:hidden;
+}
+.hb-bar i{
+  position:absolute; inset:0; border-radius:999px;
+  background:linear-gradient(90deg,#8B5CF6 0%,#6C6BFF 55%,#A8A6FF 100%);
+  box-shadow:0 0 14px rgba(108,107,255,.45);
+  transform-origin:right center;
+  animation:hbTimer 12s linear infinite;
+}
+@keyframes hbTimer{from{transform:scaleX(1);} to{transform:scaleX(0);}}
+
+.hb-word{display:flex; justify-content:center; gap:6px;}
+.hb-word i{
+  width:20px; height:26px;
+  border-bottom:2.5px solid var(--brand); border-radius:3px;
+}
+
+.hb-canvas{
+  aspect-ratio:4/3;
+  border-radius:16px; border:2px solid transparent;
+  background-image:linear-gradient(#fff,#fff), linear-gradient(135deg,var(--brand),var(--brand2));
+  background-origin:border-box; background-clip:content-box, border-box;
+  overflow:hidden;
+}
+.hb-canvas svg{display:block; width:100%; height:100%;}
+.hb-canvas path{
+  fill:none; stroke-linecap:round; stroke-linejoin:round;
+  stroke-width:7; stroke-dasharray:1;
+}
+.hb-s3{stroke-width:11;}
+.hb-s1{animation:hbS1 12s linear infinite;}
+.hb-s2{animation:hbS2 12s linear infinite;}
+.hb-s3{animation:hbS3 12s linear infinite;}
+.hb-s4{animation:hbS4 12s linear infinite;}
+.hb-s5{animation:hbS5 12s linear infinite;}
+@keyframes hbS1{0%,5%{stroke-dashoffset:1; opacity:0;} 5.1%{stroke-dashoffset:1; opacity:1;} 20%,94%{stroke-dashoffset:0; opacity:1;} 100%{stroke-dashoffset:0; opacity:0;}}
+@keyframes hbS2{0%,20%{stroke-dashoffset:1; opacity:0;} 20.1%{stroke-dashoffset:1; opacity:1;} 30%,94%{stroke-dashoffset:0; opacity:1;} 100%{stroke-dashoffset:0; opacity:0;}}
+@keyframes hbS3{0%,30%{stroke-dashoffset:1; opacity:0;} 30.1%{stroke-dashoffset:1; opacity:1;} 38%,94%{stroke-dashoffset:0; opacity:1;} 100%{stroke-dashoffset:0; opacity:0;}}
+@keyframes hbS4{0%,38%{stroke-dashoffset:1; opacity:0;} 38.1%{stroke-dashoffset:1; opacity:1;} 50%,94%{stroke-dashoffset:0; opacity:1;} 100%{stroke-dashoffset:0; opacity:0;}}
+@keyframes hbS5{0%,50%{stroke-dashoffset:1; opacity:0;} 50.1%{stroke-dashoffset:1; opacity:1;} 60%,94%{stroke-dashoffset:0; opacity:1;} 100%{stroke-dashoffset:0; opacity:0;}}
+
+.hb-options{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:var(--s2);}
+@media (max-width:420px){ .hb-options{grid-template-columns:repeat(2,minmax(0,1fr));} }
+.hb-opt{
+  padding:11px 6px; text-align:center;
+  font-weight:700; font-size:13.5px;
+  border-radius:12px; border:1.5px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.03); color:var(--text-soft);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.hb-opt.is-wrong{animation:hbWrong 12s linear infinite;}
+.hb-opt.is-correct{animation:hbCorrect 12s linear infinite;}
+@keyframes hbWrong{
+  0%,62%{background:rgba(255,255,255,.03); border-color:rgba(255,255,255,.1); color:var(--text-soft); transform:translateX(0);}
+  63%{background:rgba(255,84,112,.22); border-color:var(--coral); color:#FF8A9B; transform:translateX(-4px);}
+  65%{transform:translateX(4px);}
+  67%,94%{background:rgba(255,84,112,.22); border-color:var(--coral); color:#FF8A9B; transform:translateX(0);}
+  100%{background:rgba(255,255,255,.03); border-color:rgba(255,255,255,.1); color:var(--text-soft); transform:translateX(0);}
+}
+@keyframes hbCorrect{
+  0%,72%{background:rgba(255,255,255,.03); border-color:rgba(255,255,255,.1); color:var(--text-soft); transform:scale(1);}
+  75%{transform:scale(1.06);}
+  78%,94%{background:rgba(46,212,122,.2); border-color:var(--green); color:var(--green); transform:scale(1);}
+  100%{background:rgba(255,255,255,.03); border-color:rgba(255,255,255,.1); color:var(--text-soft); transform:scale(1);}
+}
+@media (prefers-reduced-motion: reduce){
+  .hb-opt.is-correct{background:rgba(46,212,122,.2); border-color:var(--green); color:var(--green);}
+}
+
+/* ---- action panel ---- */
+.home-panel{
+  position:relative; overflow:hidden; min-width:0;
+  padding:var(--s6);
+  background:var(--surface);
+  border:1px solid var(--border); border-radius:22px;
+  box-shadow:0 30px 70px -30px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.05);
+  animation:hmRise .55s .16s cubic-bezier(.22,1,.36,1) both;
+}
+.home-panel::before{
+  content:""; position:absolute; top:0; left:0; right:0; height:3px;
+  background:linear-gradient(90deg,var(--brand),var(--brand2),var(--pink));
+}
+@media (max-width:520px){ .home-panel{padding:var(--s5);} }
+
 .home-tabs{
-  display:flex; position:relative;
-  border-bottom:1px solid rgba(255,255,255,.08);
-  margin-bottom:var(--s8);
+  display:grid; grid-template-columns:1fr 1fr; gap:4px;
+  padding:4px; margin-bottom:var(--s5);
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.06); border-radius:14px;
 }
 .home-tab{
-  flex:1; position:relative;
-  padding:var(--s4) var(--s2);
-  background:transparent; border:none;
+  display:flex; align-items:center; justify-content:center; gap:var(--s2);
+  padding:11px var(--s2);
+  background:transparent; border:none; border-radius:10px;
   color:var(--text-soft);
-  font-family:inherit; font-weight:700; font-size:14.5px;
+  font-family:inherit; font-weight:800; font-size:14.5px;
   cursor:pointer;
-  transition:color .2s;
+  transition:color .2s, background .2s, box-shadow .2s;
 }
 .home-tab:hover{color:var(--text);}
-.home-tab.active{color:var(--text);}
-.home-tab.active::after{
-  content:""; position:absolute;
-  left:22%; right:22%; bottom:-1px;
-  height:2px; border-radius:2px;
-  background:var(--brand);
-  animation:hmTab .3s cubic-bezier(.4,0,.2,1);
+.home-tab.active{
+  color:#fff; background:rgba(108,107,255,.18);
+  box-shadow:inset 0 0 0 1px rgba(108,107,255,.5);
 }
-@keyframes hmTab{from{transform:scaleX(.4); opacity:.4;} to{transform:scaleX(1); opacity:1;}}
+.home-tab svg{width:15px; height:15px;}
+
+.home-panel-note{
+  margin:0 0 var(--s5);
+  font-size:13px; font-weight:500; line-height:1.9;
+  color:var(--text-soft);
+}
 
 .home-field{margin-bottom:var(--s5);}
 .home-field label{
@@ -311,6 +414,8 @@ input,button,select,textarea{font-size:16px;}
   font-size:12px; font-weight:700; letter-spacing:.2px;
   color:var(--text-soft);
 }
+.home-field label small{font-size:11.5px; font-weight:500; opacity:.75; margin-inline-start:6px;}
+
 .home-input{
   width:100%; padding:14px 16px;
   background:rgba(255,255,255,.02);
@@ -361,8 +466,8 @@ input,button,select,textarea{font-size:16px;}
 
 /* ---- Public rooms list (live) ---- */
 .public-rooms-list{
-  display:flex; flex-direction:column; gap:var(--s3);
-  max-height:240px; overflow-y:auto;
+  display:flex; flex-direction:column; gap:var(--s2);
+  max-height:232px; overflow-y:auto;
   scrollbar-width:thin;
 }
 .public-rooms-list::-webkit-scrollbar{ width:6px; }
@@ -371,10 +476,10 @@ input,button,select,textarea{font-size:16px;}
 }
 .public-rooms-empty{
   padding:var(--s5); text-align:center;
-  font-size:12.5px; font-weight:600; color:var(--text-soft);
+  font-size:12.5px; font-weight:600; line-height:1.9; color:var(--text-soft);
   background:rgba(255,255,255,.02);
   border:1px dashed rgba(255,255,255,.1);
-  border-radius:12px;
+  border-radius:14px;
   display:flex; flex-direction:column; align-items:center; gap:var(--s2);
 }
 .public-rooms-empty::before{
@@ -392,10 +497,12 @@ input,button,select,textarea{font-size:16px;}
 .public-room-card{
   display:flex; align-items:center; justify-content:space-between; gap:var(--s3);
   padding:12px 14px;
-  background:rgba(255,255,255,.02);
-  border:1px solid rgba(255,255,255,.1);
-  border-radius:12px;
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:14px;
+  transition:border-color .2s, background .2s;
 }
+.public-room-card:hover{border-color:rgba(108,107,255,.4); background:rgba(108,107,255,.06);}
 .public-room-card.removing{
   animation: roomOut .28s ease forwards;
   pointer-events: none;
@@ -403,11 +510,18 @@ input,button,select,textarea{font-size:16px;}
 @keyframes roomOut{
   to{ opacity:0; transform:translateX(-8px) scale(.96); }
 }
-.public-room-info{display:flex; flex-direction:column; gap:2px; overflow:hidden;}
-.public-room-host{font-size:13.5px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.public-room-info{display:flex; flex-direction:column; gap:3px; overflow:hidden; min-width:0;}
+.public-room-host{font-size:14px; font-weight:800; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .public-room-count{font-size:11.5px; font-weight:600; color:var(--text-soft);}
+.public-room-pips{display:flex; gap:3px; margin-top:2px;}
+.public-room-pips span{
+  width:12px; height:4px; border-radius:2px;
+  background:rgba(255,255,255,.1);
+  transition:background .3s;
+}
+.public-room-pips span.on{background:var(--brand);}
 .public-room-join{
-  flex-shrink:0; padding:8px 16px;
+  flex-shrink:0; padding:9px 16px;
   background:var(--brand); border:none; border-radius:10px;
   color:#fff; font-family:inherit; font-weight:800; font-size:12.5px;
   cursor:pointer; transition:background .2s, transform .12s, opacity .2s;
@@ -431,45 +545,51 @@ input,button,select,textarea{font-size:16px;}
 @keyframes joinSpin{ to{ transform:rotate(360deg); } }
 
 .home-cta{
-  width:100%; padding:15px 20px; margin-top:var(--s1);
-  background:var(--brand); border:none; border-radius:12px;
+  width:100%; padding:16px 20px; margin-top:var(--s1);
+  background:var(--brand); border:none; border-radius:14px;
   color:#fff;
-  font-family:inherit; font-weight:800; font-size:15.5px;
+  font-family:inherit; font-weight:800; font-size:16px;
   cursor:pointer;
   display:flex; align-items:center; justify-content:center; gap:var(--s3);
-  transition:background .2s, transform .12s;
+  box-shadow:0 14px 30px -12px rgba(108,107,255,.65), inset 0 -3px 0 rgba(0,0,0,.18);
+  transition:background .2s, transform .12s, box-shadow .12s;
 }
 .home-cta:hover{background:#7B7AFF;}
-.home-cta:active{transform:scale(.985);}
+.home-cta:active{transform:translateY(2px); box-shadow:0 8px 18px -10px rgba(108,107,255,.6), inset 0 -1px 0 rgba(0,0,0,.18);}
 .home-cta svg{transition:transform .25s;}
 .home-cta:hover svg{transform:translateX(-3px);}
 
-.home-help{
-  margin-top:var(--s8); padding-top:var(--s5);
+.home-tab:focus-visible, .home-cta:focus-visible, .public-room-join:focus-visible{
+  outline:2px solid #A8A6FF; outline-offset:2px;
+}
+
+/* ---- how to play ---- */
+.home-steps{
+  width:100%;
+  padding-top:var(--s8);
   border-top:1px solid rgba(255,255,255,.06);
+  animation:hmRise .55s .24s cubic-bezier(.22,1,.36,1) both;
 }
-.home-help summary{
-  list-style:none; cursor:pointer;
-  display:flex; align-items:center; justify-content:space-between;
-  font-size:12.5px; font-weight:700; color:var(--text-soft);
-  transition:color .2s;
+.home-steps-title{
+  margin:0 0 var(--s5);
+  font-size:15px; font-weight:800; color:var(--text);
 }
-.home-help summary:hover{color:var(--text);}
-.home-help summary::-webkit-details-marker{display:none;}
-.home-help summary::after{
-  content:""; width:7px; height:7px;
-  border-right:1.5px solid currentColor;
-  border-bottom:1.5px solid currentColor;
-  transform:rotate(45deg); margin-top:-4px;
-  transition:transform .25s;
+.home-steps-list{
+  list-style:none; margin:0; padding:0;
+  display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:var(--s5);
 }
-.home-help[open] summary::after{transform:rotate(-135deg); margin-top:4px;}
-.home-help-body{
-  padding-top:var(--s4);
-  font-size:12.5px; line-height:2.05;
-  color:var(--text-soft);
+@media (max-width:900px){ .home-steps-list{grid-template-columns:minmax(0,1fr); gap:var(--s4); max-width:480px; margin:0 auto;} .home-steps{max-width:480px;} }
+.home-steps-list li{display:flex; flex-direction:column; gap:var(--s3);}
+@media (max-width:900px){ .home-steps-list li{flex-direction:row; align-items:flex-start;} }
+.home-step-n{
+  width:28px; height:28px; border-radius:50%; flex-shrink:0;
+  display:grid; place-items:center;
+  font-weight:800; font-size:13px; color:#A8A6FF;
+  background:rgba(108,107,255,.12);
+  border:1px solid rgba(108,107,255,.3);
 }
-.home-help-body b{color:var(--text); font-weight:700;}
+.home-steps-list p{margin:0; font-size:13px; font-weight:500; line-height:1.95; color:var(--text-soft);}
+.home-steps-list b{color:var(--text); font-weight:700;}
 
 /* ==================== LOBBY ==================== */
 .lobby-body{
@@ -1929,26 +2049,51 @@ function mountHome(){
   <div class="home-root">
     ${headerHTML(false)}
 
-    <div class="home-body">
-      <section class="home-intro">
-        <h1 class="home-title">خط‌خطی<span class="mark"></span></h1>
-        <svg class="home-doodle" viewBox="0 0 220 24" fill="none" aria-hidden="true">
-          <path d="M3 14 Q 56 2, 110 14 T 217 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    <main class="home-stage">
+      <section class="home-hero">
+        <h1 class="home-title">خط‌خطی</h1>
+        <svg class="home-scribble" viewBox="0 0 280 20" fill="none" aria-hidden="true">
+          <path pathLength="1" d="M4 13 C 40 4, 78 4, 112 11 S 190 18, 226 8 S 262 6, 276 10" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
         </svg>
-        <p class="home-desc">
-          بازی نقاشی و حدس گروهی. یکی می‌کشد، بقیه حدس می‌زنند و <b>امتیاز</b> می‌گیرند.
-        </p>
+        <p class="home-tagline">بازی نقاشی و حدس گروهی. یکی می‌کشد، بقیه حدس می‌زنند و <b>امتیاز</b> می‌گیرند.</p>
       </section>
 
-      <section class="home-form-wrap">
-        <div class="home-form">
-          <div class="home-tabs" role="tablist">
-            <button type="button" class="home-tab" data-mode="create">ساخت اتاق</button>
-            <button type="button" class="home-tab" data-mode="join">پیوستن</button>
+      <div class="home-grid">
+        <div class="home-board" aria-hidden="true">
+          <div class="hb-card">
+            <div class="hb-head">
+              <span class="hb-avatar">ک</span>
+              <span><b>کاوه</b> نقاشی می‌کشد</span>
+              <span class="hb-bar"><i></i></span>
+            </div>
+            <div class="hb-word"><i></i><i></i><i></i><i></i></div>
+            <div class="hb-canvas">
+              <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet">
+                <path class="hb-s1" pathLength="1" stroke="#22252B" d="M122 165 C122 122 158 92 200 92 C242 92 278 122 278 165 C278 208 242 238 200 238 C158 238 122 208 122 165"/>
+                <path class="hb-s2" pathLength="1" stroke="#FF6A5B" d="M134 126 L130 70 L178 98 M266 126 L270 70 L222 98"/>
+                <path class="hb-s3" pathLength="1" stroke="#22252B" stroke-width="10" d="M168 152 L168 166 M232 152 L232 166"/>
+                <path class="hb-s4" pathLength="1" stroke="#FF8FB1" d="M194 180 L206 180 L200 188 Z M200 188 Q190 204 176 196 M200 188 Q210 204 224 196 M148 182 L98 172 M148 194 L100 200 M252 182 L302 172 M252 194 L300 200"/>
+                <path class="hb-s5" pathLength="1" stroke="#7C83FD" d="M158 228 Q140 288 200 288 Q260 288 242 228"/>
+              </svg>
+            </div>
+            <div class="hb-options">
+              <span class="hb-opt is-wrong">سگ</span>
+              <span class="hb-opt is-correct">گربه</span>
+              <span class="hb-opt">خرگوش</span>
+              <span class="hb-opt">روباه</span>
+            </div>
           </div>
+        </div>
+
+        <div class="home-panel">
+          <div class="home-tabs" role="tablist">
+            <button type="button" class="home-tab" role="tab" data-mode="create">${icon('plus',15)}<span>ساخت اتاق</span></button>
+            <button type="button" class="home-tab" role="tab" data-mode="join">${icon('link',15)}<span>پیوستن</span></button>
+          </div>
+          <p class="home-panel-note" id="homeNote"></p>
 
           <div class="home-field" id="roomNameField">
-            <label>نام اتاق</label>
+            <label>نام اتاق<small>(اختیاری)</small></label>
             <input class="home-input" id="roomNameInput" maxlength="24" placeholder="مثلاً جمع دوستان" autocomplete="off" spellcheck="false">
           </div>
 
@@ -1966,24 +2111,31 @@ function mountHome(){
           </div>
 
           <button class="home-cta" id="primaryActionBtn"></button>
-
-          <details class="home-help">
-            <summary>راهنمای بازی</summary>
-            <div class="home-help-body">
-              ۱. یک نفر <b>نقاش</b> می‌شود و یک کلمه می‌گیرد.<br>
-              ۲. نقاش کلمه را روی تخته می‌کشد، بقیه از بین گزینه‌ها حدس می‌زنند.<br>
-              ۳. هرکس زودتر درست حدس بزند، <b>امتیاز بیشتری</b> می‌گیرد.<br>
-              ۴. وقتی همه یک‌بار نقاش شدند، یک <b>راند</b> تمام می‌شود.<br>
-              ۵. میزبان می‌تواند زمان هر نوبت و تعداد راندها را در لابی تنظیم کند.
-            </div>
-          </details>
         </div>
+      </div>
+
+      <section class="home-steps">
+        <h2 class="home-steps-title">راهنمای بازی</h2>
+        <ol class="home-steps-list">
+          <li><span class="home-step-n">۱</span><p>یک نفر <b>نقاش</b> می‌شود و یک کلمه می‌گیرد.</p></li>
+          <li><span class="home-step-n">۲</span><p>نقاش کلمه را روی تخته می‌کشد، بقیه از بین گزینه‌ها حدس می‌زنند.</p></li>
+          <li><span class="home-step-n">۳</span><p>هرکس زودتر درست حدس بزند، <b>امتیاز بیشتری</b> می‌گیرد.</p></li>
+          <li><span class="home-step-n">۴</span><p>وقتی همه یک‌بار نقاش شدند، یک <b>راند</b> تمام می‌شود.</p></li>
+          <li><span class="home-step-n">۵</span><p>میزبان می‌تواند زمان هر نوبت و تعداد راندها را در لابی تنظیم کند.</p></li>
+        </ol>
       </section>
-    </div>
+    </main>
   </div>`;
 
   function applyHomeMode(){
-    $$('.home-tab').forEach(b=> b.classList.toggle('active', b.dataset.mode===homeMode));
+    $$('.home-tab').forEach(b=>{
+      const on = b.dataset.mode===homeMode;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    $('#homeNote').textContent = homeMode==='join'
+      ? 'کد اتاق را وارد کن یا یکی از اتاق‌های عمومی را انتخاب کن.'
+      : 'اتاق بساز و کدش را برای دوستانت بفرست.';
     $('#roomNameField').style.display = homeMode==='create' ? '' : 'none';
     $('#joinCodeField').style.display = homeMode==='join' ? '' : 'none';
     $('#publicRoomsField').style.display = homeMode==='join' ? '' : 'none';
@@ -2060,6 +2212,7 @@ function renderPublicRoomsList(){
         const txt = faNum(r.playerCount) + ' از ' + faNum(8) + ' نفر';
         if(countEl.textContent !== txt) countEl.textContent = txt;
       }
+      card.querySelectorAll('.public-room-pips span').forEach((pip, i)=> pip.classList.toggle('on', i < r.playerCount));
     } else {
       card = document.createElement('div');
       card.className = 'public-room-card';
@@ -2068,6 +2221,7 @@ function renderPublicRoomsList(){
         <div class="public-room-info">
           <span class="public-room-host">${escapeHtml(r.roomName)}</span>
           <span class="public-room-count">${faNum(r.playerCount)} از ${faNum(8)} نفر</span>
+          <span class="public-room-pips" aria-hidden="true">${Array.from({length:8}, (_, i)=> '<span'+(i < r.playerCount ? ' class="on"' : '')+'></span>').join('')}</span>
         </div>
         <button type="button" class="public-room-join">پیوستن</button>
       `;
