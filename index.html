@@ -157,58 +157,77 @@ input,button,select,textarea{font-size:16px;}
 }
 .home-root > *, .lobby-root > *, .game-root > *{position:relative; z-index:1;}
 
-.home-header{
-  display:flex; align-items:center; justify-content:space-between;
-  height:64px; padding:0 var(--s8);
-  border-bottom:1px solid rgba(255,255,255,.06);
-  flex-shrink:0;
-  gap:var(--s3);
-}
-@media (max-width:640px){ .home-header{padding:0 var(--s5); height:60px;} }
-
-.home-brand{display:flex; align-items:center; gap:var(--s3); font-weight:800; font-size:15px; color:var(--text);}
-.home-brand-mark{
-  width:30px; height:30px; border-radius:9px;
-  background:rgba(108,107,255,.12);
-  border:1px solid rgba(108,107,255,.28);
-  color:#A8A6FF;
-  display:grid; place-items:center;
-  flex-shrink:0;
+/* ==================== FLOATING CONTROLS (replaces header) ==================== */
+.floating-controls{
+  position:fixed;
+  top:12px;
+  left:12px;
+  right:auto;
+  z-index:1500;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  direction:ltr; /* ترتیب دکمه‌ها از چپ به راست خوانده شود */
 }
 
 .mute-btn{
   width:36px; height:36px;
   border-radius:10px;
-  background:rgba(255,255,255,.03);
-  border:1px solid rgba(255,255,255,.08);
+  background:rgba(18,22,42,.82);
+  -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.1);
   color:var(--text-soft);
   cursor:pointer;
   display:grid; place-items:center;
   transition:background .2s, color .2s, border-color .2s, transform .12s;
   flex-shrink:0;
   padding:0;
+  box-shadow:0 10px 24px -14px rgba(0,0,0,.9);
 }
 .mute-btn:hover{background:rgba(255,255,255,.06); color:var(--text);}
 .mute-btn:active{transform:scale(.94);}
-.mute-btn.muted{color:var(--coral); border-color:rgba(255,84,112,.3); background:rgba(255,84,112,.08);}
+.mute-btn.muted{color:var(--coral); border-color:rgba(255,84,112,.3); background:rgba(255,84,112,.14);}
 .mute-btn svg{width:17px; height:17px;}
 
 .forfeit-btn{
   display:flex; align-items:center; gap:6px;
   height:36px; padding:0 12px;
   border-radius:10px;
-  background:rgba(255,84,112,.08);
-  border:1px solid rgba(255,84,112,.25);
+  background:rgba(255,84,112,.12);
+  -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
+  border:1px solid rgba(255,84,112,.28);
   color:#FF8A9B;
   font-family:inherit; font-weight:700; font-size:12px;
   cursor:pointer;
   transition:background .2s, border-color .2s, transform .12s;
   flex-shrink:0;
+  box-shadow:0 10px 24px -14px rgba(0,0,0,.9);
 }
-.forfeit-btn:hover{background:rgba(255,84,112,.16); border-color:rgba(255,84,112,.4);}
+.forfeit-btn:hover{background:rgba(255,84,112,.2); border-color:rgba(255,84,112,.45);}
 .forfeit-btn:active{transform:scale(.95);}
 .forfeit-btn svg{width:15px; height:15px;}
-@media (max-width:420px){ .forfeit-btn span{display:none;} .forfeit-btn{padding:0 9px;} }
+
+.float-room-tag{
+  display:inline-flex; align-items:center; gap:6px;
+  height:36px; padding:0 12px;
+  border-radius:10px;
+  background:rgba(18,22,42,.82);
+  -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.1);
+  font-size:11px; font-weight:700; color:var(--text-soft);
+  white-space:nowrap;
+  box-shadow:0 10px 24px -14px rgba(0,0,0,.9);
+}
+.float-room-tag b{color:var(--text); font-weight:800; letter-spacing:2px; direction:ltr;}
+
+@media (max-width:520px){
+  .floating-controls{top:10px; left:10px; right:auto; gap:6px;}
+  .float-room-tag{height:32px; padding:0 9px; font-size:10px;}
+  .float-room-tag b{letter-spacing:1.4px;}
+  .mute-btn{width:32px; height:32px;}
+  .forfeit-btn{height:32px; padding:0 9px;}
+  .forfeit-btn span{display:none;}
+}
 
 @keyframes hmRise{from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);}}
 
@@ -223,12 +242,12 @@ input,button,select,textarea{font-size:16px;}
 
 .home-stage{
   flex:1; width:100%; max-width:1040px; margin:0 auto;
-  padding:var(--s10) var(--s6) var(--s12);
+  padding:72px var(--s6) var(--s12);
   display:flex; flex-direction:column; align-items:center;
   gap:var(--s10);
 }
 @media (max-width:900px){
-  .home-stage{padding:var(--s6) var(--s5) var(--s10); gap:var(--s8);}
+  .home-stage{padding:64px var(--s5) var(--s10); gap:var(--s8);}
 }
 
 .home-hero{
@@ -306,12 +325,6 @@ input,button,select,textarea{font-size:16px;}
   animation:hbTimer 12s linear infinite;
 }
 @keyframes hbTimer{from{transform:scaleX(1);} to{transform:scaleX(0);}}
-
-.hb-word{display:flex; justify-content:center; gap:6px;}
-.hb-word i{
-  width:20px; height:26px;
-  border-bottom:2.5px solid var(--brand); border-radius:3px;
-}
 
 .hb-canvas{
   aspect-ratio:4/3;
@@ -608,7 +621,7 @@ input,button,select,textarea{font-size:16px;}
 }
 @media (max-width:900px){
   .lobby-left{
-    padding:var(--s10) var(--s5) var(--s8);
+    padding:56px var(--s5) var(--s8);
     border-left:none;
     border-bottom:1px solid rgba(255,255,255,.06);
     gap:var(--s5);
@@ -799,36 +812,9 @@ input,button,select,textarea{font-size:16px;}
 }
 .game-root > *{position:relative; z-index:1;}
 
-.game-header{
-  display:flex; align-items:center; justify-content:space-between;
-  height:56px; padding:0 var(--s6);
-  border-bottom:1px solid rgba(255,255,255,.06);
-  flex-shrink:0; gap:var(--s3);
-}
-.game-header-right{display:flex; align-items:center; gap:var(--s2); flex-shrink:0;}
-.game-room-tag{
-  font-size:11px; font-weight:700; color:var(--text-soft);
-  display:inline-flex; align-items:center; gap:6px;
-  white-space:nowrap;
-}
-.game-room-tag b{
-  color:var(--text); font-weight:800;
-  letter-spacing:2px;
-  padding:4px 9px;
-  background:rgba(108,107,255,.1);
-  border:1px solid rgba(108,107,255,.24);
-  border-radius:8px;
-  direction:ltr;
-}
-@media (max-width:520px){
-  .game-header{padding:0 var(--s4); height:52px;}
-  .game-room-tag{font-size:10px;}
-  .game-room-tag b{padding:3px 7px; letter-spacing:1.5px;}
-}
-
 .game-timer{
   position:relative; width:100%;
-  padding:12px var(--s6) 10px;
+  padding:52px var(--s6) 10px;
   border-bottom:1px solid rgba(255,255,255,.06);
   background:rgba(255,255,255,.01);
   flex-shrink:0;
@@ -875,7 +861,7 @@ input,button,select,textarea{font-size:16px;}
   min-width:56px; text-align:center; letter-spacing:.5px;
 }
 @media (max-width:640px){
-  .game-timer{padding:10px var(--s4) 8px;}
+  .game-timer{padding:48px var(--s4) 8px;}
   .game-timer-meta{font-size:11px; margin-top:7px;}
   .game-time-text{font-size:13px; padding:2px 8px; min-width:48px;}
 }
@@ -889,91 +875,167 @@ input,button,select,textarea{font-size:16px;}
   .game-body{padding:var(--s4) var(--s4) var(--s5); gap:var(--s3);}
 }
 
-/* شبکه‌ی بازیکنان: به‌جای یک ردیف اسکرولی (که با ۸ نفر بقیه بیرون از صفحه می‌رفتند)
-   بازیکنان در حداکثر ۴ ستون و چند ردیف می‌آیند تا همه همیشه دیده شوند. */
+/* ==================== PLAYER LEADERBOARD (new) ==================== */
 .player-strip{
-  --cols:4;
   display:grid;
-  grid-template-columns:repeat(var(--cols), minmax(0,1fr));
-  gap:var(--s2);
-  padding:8px 0 2px;
+  grid-template-columns:repeat(auto-fit, minmax(152px, 1fr));
+  gap:8px;
+  padding:8px 0 6px;
   flex-shrink:0;
 }
 
 .player-card{
-  min-width:0;
-  display:flex; align-items:center; gap:var(--s2);
-  padding:8px 10px;
-  background:rgba(255,255,255,.03);
-  border:1.5px solid rgba(255,255,255,.07);
-  border-radius:14px;
   position:relative;
-  transition:background .3s, border-color .3s, box-shadow .3s, transform .2s;
+  min-width:0;
+  display:flex; align-items:center; gap:8px;
+  padding:8px 9px;
+  border-radius:14px;
+  background:linear-gradient(135deg, rgba(255,255,255,.05), rgba(255,255,255,.015));
+  border:1px solid rgba(255,255,255,.075);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+  transition:background .3s, border-color .3s, box-shadow .3s;
 }
-.player-card .player-badge{
-  position:absolute; top:-6px; right:-6px;
+
+.player-card .player-rank{
+  flex-shrink:0;
   width:22px; height:22px;
-  border-radius:50%;
   display:grid; place-items:center;
-  background:var(--surface-2);
-  border:1.5px solid rgba(255,255,255,.12);
-  color:transparent;
-  opacity:0;
-  transition:opacity .25s, color .25s, background .25s, border-color .25s;
-  z-index:2; pointer-events:none;
-  box-shadow:0 4px 10px rgba(0,0,0,.4);
+  border-radius:7px;
+  font-size:11px; font-weight:900;
+  font-variant-numeric:tabular-nums;
+  color:var(--text-soft);
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.08);
 }
+.player-card[data-rank="1"] .player-rank{
+  color:#2B1B02;
+  background:linear-gradient(135deg,#FFDE9B,#FFB84D);
+  border-color:rgba(255,184,77,.7);
+  box-shadow:0 0 12px rgba(255,184,77,.45);
+}
+.player-card[data-rank="2"] .player-rank{
+  color:#1A2036;
+  background:linear-gradient(135deg,#EDF0F8,#B7BFD4);
+  border-color:rgba(210,216,230,.6);
+}
+.player-card[data-rank="3"] .player-rank{
+  color:#2B1405;
+  background:linear-gradient(135deg,#F2C49B,#D08B57);
+  border-color:rgba(214,152,102,.6);
+}
+
 .player-card .player-avatar{
   width:30px; height:30px; border-radius:50%;
   display:grid; place-items:center;
-  font-weight:800; font-size:12px; color:#fff;
-  flex-shrink:0; border:2px solid rgba(255,255,255,.15);
+  font-weight:800; font-size:12.5px; color:#fff;
+  flex-shrink:0;
+  border:2px solid rgba(255,255,255,.16);
+  box-shadow:0 4px 10px -4px rgba(0,0,0,.7);
 }
-.player-card .player-info{display:flex; flex-direction:column; min-width:0; flex:1; gap:1px;}
+
+.player-card .player-info{
+  flex:1; min-width:0;
+  display:flex; flex-direction:column; gap:5px;
+}
 .player-card .player-name{
   font-size:12.5px; font-weight:700; color:var(--text);
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; line-height:1.2;
+  line-height:1.15;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.player-card .player-score-row{
+  display:flex; align-items:center; gap:6px; min-width:0;
 }
 .player-card .player-score{
-  font-size:11.5px; font-weight:800; color:var(--brand);
-  font-variant-numeric:tabular-nums; line-height:1.2;
+  font-size:11.5px; font-weight:900; color:var(--brand);
+  font-variant-numeric:tabular-nums; line-height:1;
+  flex-shrink:0;
 }
-.player-card.me{border-color:rgba(255,255,255,.18);}
+.player-card .player-bar{
+  flex:1; min-width:14px; height:4px;
+  border-radius:999px;
+  background:rgba(255,255,255,.08);
+  overflow:hidden;
+}
+.player-card .player-bar i{
+  display:block; height:100%; width:0;
+  border-radius:999px;
+  background:linear-gradient(90deg,var(--brand2),var(--brand));
+  transition:width .6s cubic-bezier(.22,1,.36,1);
+}
+
+.player-card .player-badge{
+  position:absolute;
+  top:-6px; left:-6px;
+  width:20px; height:20px;
+  border-radius:50%;
+  display:grid; place-items:center;
+  background:var(--surface-2);
+  border:1.5px solid rgba(255,255,255,.14);
+  color:transparent;
+  opacity:0;
+  transform:scale(.6);
+  transition:opacity .25s, transform .25s, background .25s, border-color .25s, color .25s;
+  z-index:3;
+  box-shadow:0 4px 12px rgba(0,0,0,.55);
+  pointer-events:none;
+}
+.player-card .player-badge svg{width:11px; height:11px;}
+
+.player-card.me{
+  border-color:rgba(255,255,255,.16);
+  background:linear-gradient(135deg, rgba(108,107,255,.10), rgba(255,255,255,.02));
+}
 .player-card.drawing{
-  background:linear-gradient(135deg, rgba(108,107,255,.14), rgba(139,92,246,.08));
-  border-color:rgba(108,107,255,.45);
-  box-shadow:0 0 14px -4px rgba(108,107,255,.6);
+  background:linear-gradient(135deg, rgba(108,107,255,.2), rgba(139,92,246,.08));
+  border-color:rgba(108,107,255,.55);
+  box-shadow:0 0 18px -4px rgba(108,107,255,.7), inset 0 1px 0 rgba(255,255,255,.08);
 }
 .player-card.drawing .player-badge{
-  opacity:1; background:var(--brand); border-color:var(--brand); color:#fff;
+  opacity:1; transform:scale(1);
+  background:var(--brand); border-color:var(--brand); color:#fff;
   animation:pulseBadge 2s ease-in-out infinite;
 }
 @keyframes pulseBadge{0%,100%{transform:scale(1);} 50%{transform:scale(1.12);}}
-.player-card.correct{background:rgba(46,212,122,.1); border-color:rgba(46,212,122,.4);}
+
+.player-card.correct{
+  background:linear-gradient(135deg, rgba(46,212,122,.18), rgba(46,212,122,.04));
+  border-color:rgba(46,212,122,.45);
+}
 .player-card.correct .player-score{color:var(--green);}
-.player-card.correct .player-badge{opacity:1; background:var(--green); border-color:var(--green); color:#04140F;}
+.player-card.correct .player-bar i{background:linear-gradient(90deg,#1FAE60,var(--green));}
+.player-card.correct .player-badge{
+  opacity:1; transform:scale(1);
+  background:var(--green); border-color:var(--green); color:#04140F;
+}
+
 .player-card.wrong{
-  background:rgba(255,84,112,.14); border-color:rgba(255,84,112,.5);
-  animation:wrongPulse 1.6s ease-in-out infinite;
+  background:linear-gradient(135deg, rgba(255,84,112,.2), rgba(255,84,112,.05));
+  border-color:rgba(255,84,112,.5);
+  animation:wrongPulse 1.8s ease-in-out infinite;
 }
 .player-card.wrong .player-name{color:#FF8A9B;}
-.player-card.wrong .player-score{color:#FF8A9B;}
-.player-card.wrong .player-badge{opacity:1; background:var(--coral); border-color:var(--coral); color:#fff;}
+.player-card.wrong .player-score{color:#FF9AAB;}
+.player-card.wrong .player-bar i{background:linear-gradient(90deg,#C93A55,var(--coral));}
+.player-card.wrong .player-badge{
+  opacity:1; transform:scale(1);
+  background:var(--coral); border-color:var(--coral); color:#fff;
+}
 @keyframes wrongPulse{
   0%,100%{box-shadow:0 0 0 1px rgba(255,84,112,.15) inset;}
   50%{box-shadow:0 0 14px rgba(255,84,112,.4), 0 0 0 1px rgba(255,84,112,.35) inset;}
 }
 .player-card.offline{opacity:.35; filter:grayscale(1);}
+
 @media (max-width:640px){
-  .player-strip{gap:6px;}
-  .player-card{
-    flex-direction:column; justify-content:center; text-align:center;
-    gap:4px; padding:8px 4px;
-  }
-  .player-card .player-info{flex:none; width:100%; align-items:center;}
-  .player-card .player-name{max-width:100%; font-size:11.5px;}
-  .player-card .player-score{font-size:11px;}
-  .player-card .player-badge{top:-6px; right:-4px; width:20px; height:20px;}
+  .player-strip{grid-template-columns:repeat(auto-fit, minmax(128px,1fr)); gap:6px;}
+  .player-card{padding:7px; gap:6px; border-radius:12px;}
+  .player-card .player-rank{width:18px; height:18px; font-size:10px; border-radius:6px;}
+  .player-card .player-avatar{width:26px; height:26px; font-size:11px;}
+  .player-card .player-info{gap:3px;}
+  .player-card .player-name{font-size:11px;}
+  .player-card .player-score{font-size:10.5px;}
+  .player-card .player-bar{height:3px;}
+  .player-card .player-badge{top:-5px; left:-5px; width:18px; height:18px;}
 }
 
 .board-area{display:flex; flex-direction:column; gap:var(--s3);}
@@ -1674,19 +1736,14 @@ function legacyCopy(text){
 }
 
 function headerHTML(withRoom){
-  const logo = '<div class="home-brand"><span class="home-brand-mark">'+icon('pencil',16)+'</span><span>خط‌خطی</span></div>';
   const mute = '<button class="mute-btn'+(SFX.enabled?'':' muted')+'" id="muteBtn" title="صدا">'+icon(SFX.enabled?'volume':'volumeOff',17)+'</button>';
-  if(withRoom){
-    const forfeit = '<button class="forfeit-btn" id="forfeitBtn" title="انصراف از بازی">'+icon('logOut',16)+'<span>انصراف</span></button>';
-    return '<header class="home-header game-header">'+logo+
-      '<div class="game-header-right">'+
-        '<span class="game-room-tag">اتاق <b>'+escapeHtml(S.code||'')+'</b></span>'+
-        forfeit+
-        mute+
-      '</div>'+
-    '</header>';
-  }
-  return '<header class="home-header">'+logo+mute+'</header>';
+  const roomTag = withRoom
+    ? '<span class="float-room-tag">اتاق <b>'+escapeHtml(S.code||'')+'</b></span>'
+    : '';
+  const forfeit = withRoom
+    ? '<button class="forfeit-btn" id="forfeitBtn" title="انصراف از بازی">'+icon('logOut',16)+'<span>انصراف</span></button>'
+    : '';
+  return '<div class="floating-controls">'+roomTag+forfeit+mute+'</div>';
 }
 
 /* ============================= WEBSOCKET ============================= */
@@ -2079,7 +2136,6 @@ function mountHome(){
               <span><b>کاوه</b> نقاشی می‌کشد</span>
               <span class="hb-bar"><i></i></span>
             </div>
-            <div class="hb-word"><i></i><i></i><i></i><i></i></div>
             <div class="hb-canvas">
               <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet">
                 <path class="hb-s1" pathLength="1" stroke="#22252B" d="M122 165 C122 122 158 92 200 92 C242 92 278 122 278 165 C278 208 242 238 200 238 C158 238 122 208 122 165"/>
@@ -2763,10 +2819,10 @@ function updateGameDynamic(prevStatus, prevSeq){
 
   const wrongIds = meta.wrongIds || [];
   const sorted = Object.values(players).sort((a,b)=> b.score - a.score);
+  const maxScore = Math.max(1, ...sorted.map(p=> p.score || 0));
   const stripEl = $('#playerStrip');
   if(stripEl){
-    stripEl.style.setProperty('--cols', Math.min(Math.max(sorted.length,1),4));
-    stripEl.innerHTML = sorted.map(p=>{
+    stripEl.innerHTML = sorted.map((p, idx)=>{
       const isDrawingNow = p.id === meta.currentDrawerId && meta.status==='drawing';
       const guessedNow = (meta.guessedIds||[]).indexOf(p.id) !== -1;
       const wrongNow = wrongIds.indexOf(p.id) !== -1;
@@ -2781,12 +2837,17 @@ function updateGameDynamic(prevStatus, prevSeq){
       if(isDrawingNow) badge = icon('pencil',12);
       else if(guessedNow) badge = icon('check',12);
       else if(wrongNow) badge = icon('x',12);
-      return `<div class="${cls}">
+      const pct = Math.round(((p.score||0) / maxScore) * 100);
+      return `<div class="${cls}" data-rank="${idx+1}">
         <div class="player-badge">${badge}</div>
+        <div class="player-rank">${faNum(idx+1)}</div>
         <div class="player-avatar" style="background:${colorFor(p.colorIdx)}">${escapeHtml((p.name||'?').slice(0,1))}</div>
         <div class="player-info">
           <div class="player-name">${escapeHtml(p.name)}</div>
-          <div class="player-score">${faNum(p.score||0)}</div>
+          <div class="player-score-row">
+            <span class="player-score">${faNum(p.score||0)}</span>
+            <span class="player-bar"><i style="width:${pct}%"></i></span>
+          </div>
         </div>
       </div>`;
     }).join('');
@@ -3031,7 +3092,7 @@ function setupToolbar(){
 /* ============================= FINAL SCREEN ============================= */
 function mountFinal(){
   app.innerHTML = `
-  <div class="screen" style="min-height:100vh; padding:0 var(--s4) var(--s10); display:flex; flex-direction:column; align-items:center;">
+  <div class="screen" style="min-height:100vh; padding:72px var(--s4) var(--s10); display:flex; flex-direction:column; align-items:center;">
     ${headerHTML(false)}
     <div class="wrap" style="max-width:480px;">
       <div class="brand"><h1 style="font-size:24px;">${icon('trophy',22)} نتیجه نهایی</h1></div>
