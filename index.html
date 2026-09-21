@@ -120,7 +120,7 @@ input,button,select,textarea{font-size:16px;}
 .final-row{display:flex; align-items:center; gap:var(--s4); padding:var(--s4) var(--s5); background:var(--surface); border:1px solid var(--border);}
 .final-row .rank{font-size:22px; font-weight:900; width:34px; text-align:center; display:inline-flex; align-items:center; justify-content:center;}
 .final-row .rank svg{width:24px; height:24px;}
-.final-row .nm{flex:1; font-weight:800; font-size:17px; text-align:right;}
+.final-row .nm{flex:1; font-weight:800; font-size:17px; text-align:right; display:flex; align-items:center;}
 .final-row .sc{font-weight:900; font-size:19px; color:var(--brand);}
 .final-row.r1{background:linear-gradient(135deg, rgba(255,184,77,.22), rgba(255,184,77,.06)); border-color:rgba(255,184,77,.4);}
 .final-row.r2{background:var(--surface-2); border-color:var(--border-strong);}
@@ -128,6 +128,34 @@ input,button,select,textarea{font-size:16px;}
 .final-actions{display:flex; gap:var(--s3); justify-content:center; flex-wrap:wrap;}
 .final-row.r1 .rank{display:inline-flex; animation:bounce 1.1s ease-in-out infinite;}
 @keyframes bounce{0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);}}
+
+/* ---- replay panel (بازی دوباره) ---- */
+.replay-panel{
+  width:100%;
+  display:flex; flex-direction:column; gap:var(--s3);
+  align-items:stretch;
+}
+.replay-timer-line{
+  text-align:center;
+  font-size:13px; font-weight:600;
+  color:var(--text-soft);
+}
+.replay-timer-line b{
+  color:var(--amber);
+  font-weight:900;
+  font-size:17px;
+  font-variant-numeric:tabular-nums;
+  padding:0 4px;
+}
+.replay-ready{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:15px; height:15px; border-radius:50%;
+  background:var(--green); color:#04140F;
+  margin-inline-start:6px;
+  vertical-align:middle;
+  flex-shrink:0;
+}
+.replay-ready svg{width:9px; height:9px; stroke-width:3;}
 
 .confetti-layer{position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:998;}
 .confetti-piece{position:absolute; top:-20px; border-radius:2px; animation:fall linear forwards;}
@@ -137,9 +165,6 @@ input,button,select,textarea{font-size:16px;}
 @keyframes popIn{from{transform:scale(.7); opacity:0;} to{transform:scale(1); opacity:1;}}
 .fadeUp{animation:fadeUp .35s ease both;}
 @keyframes fadeUp{from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);}}
-
-.conn-banner{position:fixed; bottom:0; left:0; right:0; background:var(--coral); color:#1A0510; text-align:center; font-weight:700; font-size:13.5px; padding:var(--s3); z-index:1000; display:none;}
-.conn-banner.show{display:block;}
 
 #app{transition:opacity .2s ease, transform .25s cubic-bezier(.22,1,.36,1);}
 #app.screen-exit{opacity:0; transform:translateY(10px);}
@@ -167,7 +192,7 @@ input,button,select,textarea{font-size:16px;}
   display:flex;
   align-items:center;
   gap:8px;
-  direction:ltr; /* ترتیب دکمه‌ها از چپ به راست خوانده شود */
+  direction:ltr;
 }
 
 .mute-btn{
@@ -875,7 +900,7 @@ input,button,select,textarea{font-size:16px;}
   .game-body{padding:var(--s4) var(--s4) var(--s5); gap:var(--s3);}
 }
 
-/* ==================== PLAYER LEADERBOARD (new) ==================== */
+/* ==================== PLAYER LEADERBOARD ==================== */
 .player-strip{
   display:grid;
   grid-template-columns:repeat(auto-fit, minmax(152px, 1fr));
@@ -1957,6 +1982,8 @@ const S = {
 function goTo(screen){
   if(S.screen === screen) return false;
   const leavingGame = (S.screen === 'game' && screen !== 'game');
+  const leavingFinal = (S.screen === 'final' && screen !== 'final');
+  if(leavingFinal) clearInterval(startFinalTimerLoop._t);
   S.screen = screen;
   S.mounting = true;
   const doMount = ()=>{
@@ -2050,7 +2077,15 @@ function onServerMessage(msg){
     case 'roomClosed':
       clearSession();
       S.code = null; S.me.id = null; S.isHost = false; S.meta = null;
-      toast('اتاق توسط مدیر بسته شد');
+      toast('اتاق بسته شد');
+      history.replaceState(null,'',location.pathname);
+      goTo('home');
+      break;
+    case 'kickedToHome':
+      clearSession();
+      S.code = null; S.me.id = null; S.isHost = false; S.meta = null;
+      history.replaceState(null,'',location.pathname);
+      toast(msg.message || 'به صفحه اصلی برگشتی');
       goTo('home');
       break;
     case 'state': {
@@ -2732,7 +2767,7 @@ function updateGameDynamic(prevStatus, prevSeq){
     if(prevStatus === 'drawing' && meta.status === 'turnEnd'){
       SFX.timeUp();
     }
-    if(prevStatus === 'lobby' && meta.status === 'turnEnd' && meta.isPreGame){
+    if((prevStatus === 'lobby' || prevStatus === 'final') && meta.status === 'turnEnd' && meta.isPreGame){
       SFX.gameStart();
     }
     if(meta.status === 'drawing' && prevStatus === 'turnEnd'){
@@ -2971,6 +3006,7 @@ function appendChatMessage(g){
 
 /* ============================= CANVAS / DRAWING ============================= */
 let ctx = null;
+let canvasPointerUpAttached = false;
 function setupCanvas(){
   const canvas = $('#board');
   ctx = canvas.getContext('2d');
@@ -3016,7 +3052,11 @@ function setupCanvas(){
   }
   canvas.addEventListener('pointerdown', start);
   canvas.addEventListener('pointermove', move);
-  window.addEventListener('pointerup', end);
+  /* برای جلوگیری از تجمع listener روی window، فقط یک بار بذار */
+  if(!canvasPointerUpAttached){
+    window.addEventListener('pointerup', end);
+    canvasPointerUpAttached = true;
+  }
   canvas.addEventListener('pointercancel', end);
 }
 
@@ -3104,37 +3144,111 @@ function mountFinal(){
   SFX.victory();
   fireConfetti();
   renderFinalDynamic();
+  startFinalTimerLoop();
 }
+
+function startFinalTimerLoop(){
+  clearInterval(startFinalTimerLoop._t);
+  startFinalTimerLoop._t = setInterval(()=>{
+    if(S.screen !== 'final'){ clearInterval(startFinalTimerLoop._t); return; }
+    updateFinalCountdown();
+  }, 250);
+}
+function updateFinalCountdown(){
+  const el = $('#replayTimer');
+  if(!el || !S.meta) return;
+  const endAt = S.meta.replayEndAt || 0;
+  if(!endAt){ el.textContent = '—'; return; }
+  const left = Math.max(0, endAt - Date.now());
+  if(left <= 0){
+    el.textContent = '۰';
+  } else {
+    el.textContent = faNum(Math.ceil(left/1000));
+  }
+}
+
 function renderFinalDynamic(){
   if(S.screen !== 'final' || !S.meta) return;
   const sorted = Object.values(S.players).sort((a,b)=> b.score-a.score);
   const rankColors = ['#FFB84D','#C7CCDD','#E8A87C'];
-  $('#finalList').innerHTML = sorted.map((p,i)=> {
-    const rankContent = i===0 ? icon('trophy',22) : faNum(i+1);
-    const rankColor = rankColors[i] || 'var(--text-soft)';
-    return `
-    <div class="card final-row ${i===0?'r1':i===1?'r2':i===2?'r3':''} fadeUp" style="animation-delay:${i*80}ms">
-      <span class="rank" style="color:${rankColor}">${rankContent}</span>
-      <div class="avatar" style="background:${colorFor(p.colorIdx)}">${escapeHtml((p.name||'?').slice(0,1))}</div>
-      <span class="nm">${escapeHtml(p.name)}</span>
-      <span class="sc">${faNum(p.score||0)}</span>
-    </div>`;
-  }).join('');
+  const votes = S.meta.replayVotes || [];
+  const iVoted = votes.indexOf(S.me.id) !== -1;
 
-  const actions = $('#finalActions');
-  if(S.isHost){
-    actions.innerHTML = `<button class="btn btn-primary" id="againBtn">بازی دوباره</button><button class="btn btn-ghost" id="exitBtn">خروج</button>`;
-    $('#againBtn').onclick = ()=> sendMsg('playAgain', {});
-  } else {
-    actions.innerHTML = `<button class="btn btn-ghost" id="exitBtn">خروج</button>`;
+  const listEl = $('#finalList');
+  const actionsEl = $('#finalActions');
+
+  /* فقط یک بار ردیف‌ها ساخته می‌شن تا هر بار که state میاد، fadeUp دوباره پخش نشه.
+     اگه ترکیب بازیکن‌ها تغییر کرد (کسی اومد/رفت) دوباره ساخته می‌شن. */
+  const pidsKey = sorted.map(p=>p.id).join(',');
+  if(listEl.dataset.built !== pidsKey){
+    listEl.dataset.built = pidsKey;
+    listEl.innerHTML = sorted.map((p,i)=> {
+      const rankContent = i===0 ? icon('trophy',22) : faNum(i+1);
+      const rankColor = rankColors[i] || 'var(--text-soft)';
+      const hasVoted = votes.indexOf(p.id) !== -1;
+      return `
+      <div class="card final-row ${i===0?'r1':i===1?'r2':i===2?'r3':''} fadeUp" style="animation-delay:${i*80}ms" data-pid="${escapeHtml(p.id)}">
+        <span class="rank" style="color:${rankColor}">${rankContent}</span>
+        <div class="avatar" style="background:${colorFor(p.colorIdx)}">${escapeHtml((p.name||'?').slice(0,1))}</div>
+        <span class="nm">${escapeHtml(p.name)}<span class="replay-slot">${hasVoted ? '<span class="replay-ready" title="آماده بازی دوباره">'+icon('check',10)+'</span>' : ''}</span></span>
+        <span class="sc">${faNum(p.score||0)}</span>
+      </div>`;
+    }).join('');
   }
-  $('#exitBtn').onclick = ()=>{
-    sendMsg('leaveRoom', {});
-    clearSession();
-    S.code = null; S.me.id = null; S.isHost = false; S.meta = null;
-    history.replaceState(null,'',location.pathname);
-    goTo('home');
-  };
+
+  /* به‌روزرسانی تیک‌ها به‌صورت in-place — بدون re-render، بدون fade.
+     دقیقاً مثل تیک سبز لابی، فقط نشون داده/پنهان می‌شه. */
+  listEl.querySelectorAll('.final-row').forEach(row=>{
+    const pid = row.dataset.pid;
+    const slot = row.querySelector('.replay-slot');
+    if(!slot) return;
+    const hasVoted = votes.indexOf(pid) !== -1;
+    const hasCheck = !!slot.querySelector('.replay-ready');
+    if(hasVoted && !hasCheck){
+      slot.innerHTML = '<span class="replay-ready" title="آماده بازی دوباره">'+icon('check',10)+'</span>';
+    } else if(!hasVoted && hasCheck){
+      slot.innerHTML = '';
+    }
+  });
+
+  /* ناحیه‌ی دکمه‌ها هم فقط یک بار ساخته می‌شه (بدون شمارش نفرات) */
+  if(!actionsEl.dataset.built){
+    actionsEl.dataset.built = '1';
+    actionsEl.innerHTML = `
+      <div class="replay-panel">
+        <div class="replay-timer-line">بازی دوباره تا <b id="replayTimer">۴۵</b> ثانیه دیگر</div>
+        <button class="btn btn-primary btn-block" id="againBtn">بازی دوباره</button>
+        <button class="btn btn-ghost btn-block" id="exitBtn">خروج</button>
+      </div>
+    `;
+    $('#againBtn').onclick = ()=>{
+      const b = $('#againBtn');
+      if(!b || b.disabled) return;
+      b.disabled = true;
+      b.classList.remove('btn-primary');
+      b.classList.add('btn-ghost');
+      b.textContent = '✅ ثبت شد — منتظر بقیه';
+      sendMsg('playAgain', {});
+    };
+    $('#exitBtn').onclick = ()=>{
+      sendMsg('leaveRoom', {});
+      clearSession();
+      S.code = null; S.me.id = null; S.isHost = false; S.meta = null;
+      history.replaceState(null,'',location.pathname);
+      goTo('home');
+    };
+  }
+
+  /* اگه state از سرور اومد و من رأی داده بودم، دکمه رو آپدیت کن */
+  const againBtn = $('#againBtn');
+  if(againBtn && iVoted && !againBtn.disabled){
+    againBtn.disabled = true;
+    againBtn.classList.remove('btn-primary');
+    againBtn.classList.add('btn-ghost');
+    againBtn.textContent = '✅ ثبت شد — منتظر بقیه';
+  }
+
+  updateFinalCountdown();
 }
 
 function fireConfetti(count, duration){

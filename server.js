@@ -9,6 +9,7 @@ const PORT = process.env.PORT || 3000;
 const ADVANCE_DELAY = process.env.FAST_TEST === '1' ? 300 : 7000;
 const READY_COUNTDOWN_MS = process.env.FAST_TEST === '1' ? 800 : 10000;
 const DISCONNECT_GRACE_MS = 60 * 1000; /* ۱ دقیقه فرصت برگشت */
+const REPLAY_WINDOW_MS = process.env.FAST_TEST === '1' ? 2000 : 45000;
 
 /* ============================= static file ============================= */
 const indexPath = path.join(__dirname, 'index.html');
@@ -164,7 +165,6 @@ const WORD_CATEGORIES = {
   "لوازم آرایشی و بهداشتی": ["رژلب","لاک‌ناخن","عطر","برس‌مو","سشوار","آینه‌جیبی","کرم","پنبه","حوله‌حمام","وان‌حمام","دوش","شانه","ناخن‌گیر","اسپری‌مو"],
   "وسایل اداری و تجاری": ["پرینتر","فکس","تلفن‌رومیزی","کیف‌اداری","پوشه‌فایل","استپلر","گیره‌کاغذ","تقویم‌رومیزی","وایت‌برد","پروژکتور","میزکار","صندلی‌اداری","برچسب‌قیمت","صندوق‌پول"],
   "حمل‌ونقل آینده‌نگر": ["ماشین‌پرنده","ربات‌غول‌پیکر","جت‌پک","پرتاب‌کننده‌موشک","ماهواره‌مخابراتی","کاوشگر‌مریخ","پهپاد","ماشین‌خودران","جلیقه‌جت‌پکی"],
-
   "لوازم برقی آشپزخانه": [
     "یخچال","فریزر","ماشین ظرفشویی","ماشین لباسشویی","مایکروویو",
     "توستر","غذاساز","مخلوط‌کن","آبمیوه‌گیری","چای‌ساز",
@@ -512,7 +512,8 @@ function newRoom(code, hostId){
     usedWords: new Set(), turnStartAt:0, turnEndAt:0, guessedIds:new Set(), turnScores:{},
     currentStrokes: [], turnTimer:null, advanceTimer:null, emptyCleanupTimer:null,
     answers: {}, nextTurnInfo: null, isPreGame: false, isPublic: false, name: '',
-    readyCountdownEndAt: 0, readyCountdownTimer: null
+    readyCountdownEndAt: 0, readyCountdownTimer: null,
+    replayVotes: new Set(), replayEndAt: 0, replayTimer: null
   };
 }
 
@@ -559,7 +560,9 @@ function publicMeta(room, forId){
     myAnswer: (room.answers && room.answers[forId]) ? room.answers[forId] : null,
     wrongIds: Object.keys(room.answers||{}).filter(id => room.answers[id] && !room.answers[id].correct),
     lastWordReveal: room.status==='turnEnd' ? room.currentWord : null,
-    isPreGame: room.status === 'turnEnd' && room.isPreGame
+    isPreGame: room.status === 'turnEnd' && room.isPreGame,
+    replayVotes: Array.from(room.replayVotes || []),
+    replayEndAt: room.replayEndAt || 0
   };
   if(room.status === 'turnEnd' && room.nextTurnInfo){
     meta.nextDrawerId = room.nextTurnInfo.drawerId;
@@ -583,6 +586,7 @@ function clearRoomTimers(room){
   clearTimeout(room.turnTimer);
   clearTimeout(room.advanceTimer);
   clearTimeout(room.emptyCleanupTimer);
+  clearTimeout(room.replayTimer);
 }
 function scheduleEmptyCleanup(room){
   const anyConnected = activePlayers(room).length > 0;
@@ -660,6 +664,9 @@ function evaluateReadyState(room){
 
 function startGameForRoom(room){
   clearReadyCountdown(room);
+  clearTimeout(room.replayTimer);
+  room.replayVotes = new Set();
+  room.replayEndAt = 0;
   room.players.forEach(p=> { p.ready = false; });
   const ids = activePlayers(room).map(p=>p.id);
   if(ids.length < 2) return false;
@@ -677,7 +684,7 @@ function startGameForRoom(room){
   room.nextTurnInfo = null;
 
   const info = computeNextTurnInfo(room);
-  if(!info){ room.status = 'final'; broadcastState(room); return false; }
+  if(!info){ enterFinalState(room); return false; }
 
   room.nextTurnInfo = info;
   room.isPreGame = true;
@@ -713,7 +720,7 @@ function advanceTurn(room){
       info = computeNextTurnInfo(room);
     }
   }
-  if(!info){ room.status = 'final'; broadcastState(room); return; }
+  if(!info){ enterFinalState(room); return; }
   room.currentTurnIndex = info.turnIndex;
   room.currentRound = info.round;
   beginTurnWithWord(room, info.drawerId, info.word);
@@ -729,15 +736,69 @@ function checkAllGuessedOrEnd(room){
 
 /* ---- پایان بازی وقتی فقط یک نفر مونده ---- */
 function endGameWithSoloPlayer(room){
-  clearRoomTimers(room);
+  enterFinalState(room);
+}
+
+/* ---- ورود به حالت پایان + پنجره‌ی ۴۵ ثانیه‌ای بازی دوباره ---- */
+function enterFinalState(room){
+  clearTimeout(room.turnTimer);
+  clearTimeout(room.advanceTimer);
+  clearTimeout(room.replayTimer);
   clearReadyCountdown(room);
   room.status = 'final';
   room.currentWord = null;
   room.currentOptions = [];
   room.nextTurnInfo = null;
   room.isPreGame = false;
+  room.replayVotes = new Set();
+  room.replayEndAt = Date.now() + REPLAY_WINDOW_MS;
   broadcastState(room);
   broadcastPublicRooms();
+  room.replayTimer = setTimeout(()=> resolveReplayWindow(room), REPLAY_WINDOW_MS);
+}
+
+function resolveReplayWindow(room){
+  if(room.status !== 'final') return;
+  clearTimeout(room.replayTimer);
+
+  /* حذف هر کسی که یا رأی نداده یا وصل نیست */
+  const toRemove = [];
+  room.players.forEach(p=>{
+    if(!p.connected || !room.replayVotes.has(p.id)) toRemove.push(p);
+  });
+  toRemove.forEach(p=>{
+    if(p.disconnectTimer){ clearTimeout(p.disconnectTimer); p.disconnectTimer = null; }
+    if(p.connected){
+      send(p, 'kickedToHome', {message: 'زمان «بازی دوباره» تموم شد — به صفحه اصلی برگشتی'});
+    }
+    room.players.delete(p.id);
+  });
+
+  room.replayVotes = new Set();
+  room.replayEndAt = 0;
+
+  if(room.players.size === 0){
+    clearRoomTimers(room);
+    rooms.delete(room.code);
+    broadcastPublicRooms();
+    return;
+  }
+
+  if(room.players.size < 2){
+    /* فقط یک نفر آماده بود → بازی دوباره شروع نمی‌شود */
+    broadcastAll(room, 'roomClosed', {reason: 'notEnoughPlayers'});
+    clearRoomTimers(room);
+    rooms.delete(room.code);
+    broadcastPublicRooms();
+    return;
+  }
+
+  if(!room.players.has(room.hostId)){
+    const next = activePlayers(room)[0];
+    room.hostId = next ? next.id : null;
+  }
+
+  startGameForRoom(room);
 }
 
 function checkSoloVictory(room){
@@ -778,6 +839,18 @@ function handlePlayerLeave(room, playerId){
     broadcastPublicRooms();
     scheduleEmptyCleanup(room);
     return;
+  }
+
+  /* ---- اگر وسط پنجره‌ی «بازی دوباره» هستیم ---- */
+  if(room.status === 'final'){
+    const active = activePlayers(room);
+    if(active.length < 2 || active.every(p=> room.replayVotes.has(p.id))){
+      clearTimeout(room.replayTimer);
+      resolveReplayWindow(room);
+      broadcastPublicRooms();
+      scheduleEmptyCleanup(room);
+      return;
+    }
   }
 
   if(room.status === 'drawing' && room.currentDrawerId === playerId){
@@ -992,10 +1065,16 @@ function handleMessage(conn, msg){
     }
   }
   else if(type === 'playAgain'){
-    if(room.hostId !== player.id || room.status !== 'final') return;
-    if(!startGameForRoom(room)){
-      send(player, 'errorMsg', {message:'برای شروع دوباره به حداقل ۲ بازیکن نیاز است'});
+    if(room.status !== 'final') return;
+    if(room.replayVotes.has(player.id)) return;
+    room.replayVotes.add(player.id);
+    const active = activePlayers(room);
+    if(active.length >= 2 && active.every(p=> room.replayVotes.has(p.id))){
+      clearTimeout(room.replayTimer);
+      resolveReplayWindow(room);
+      return;
     }
+    broadcastState(room);
   }
   else if(type === 'leaveRoom'){
     conn.roomCode = null; conn.playerId = null;
@@ -1042,6 +1121,15 @@ function handleDisconnect(conn){
     if(room.hostId === player.id){
       const next = activePlayers(room)[0];
       if(next) room.hostId = next.id;
+    }
+    /* اگر همه‌ی بازیکنانِ فعال رأی داده‌اند (به‌جز این یکی که قطع شد)،
+       پنجره را همین حالا ببند */
+    const activeAfter = activePlayers(room);
+    if(activeAfter.length < 2 || activeAfter.every(p=> room.replayVotes.has(p.id))){
+      clearTimeout(room.replayTimer);
+      resolveReplayWindow(room);
+      broadcastPublicRooms();
+      return;
     }
   }
 
