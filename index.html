@@ -1380,11 +1380,6 @@ canvas#board{
 <div id="returnConfirmDialog" class="reconnect-overlay"></div>
 <div id="localModeDialog" class="reconnect-overlay"></div>
 <div id="app"></div>
-<script src="qrcode-gen.bundle.js"></script>
-<script src="qr-chunks.js"></script>
-<script src="p2p-transport.js"></script>
-<script src="local-engine.js"></script>
-<script src="local-mode.js"></script>
 <script>
 (function(){
 "use strict";
@@ -1797,9 +1792,11 @@ function clearSession(){
   try{ sessionStorage.removeItem('khatkhati_session'); }catch(e){}
 }
 
-/* ============================= حالت محلی (بدون اینترنت) ============================= */
-let localModeSocket = null; /* وقتی ست بشه، به‌جای WebSocket واقعی از این استفاده می‌شه */
-let localHostHandle = null; /* فقط برای میزبان: {socket, inviteNewGuest} */
+/* ============================= بازی محلی روی هات‌اسپات (بدون اینترنت) ============================= */
+/* یک نفر (میزبان) همین سرور بازی (server.js) را روی گوشی/لپ‌تاپ خودش اجرا می‌کند؛
+   بقیه از طریق آی‌پی محلیِ او روی همان وای‌فای/هات‌اسپات مشترک وصل می‌شوند.
+   از نظر کد، این دقیقاً همان بازی آنلاینِ معمولی است؛ فقط آدرس سرور به‌جای
+   دامنهٔ اینترنتی، آی‌پی محلی میزبان است. نیازی به WebRTC یا کد/QR دستی نیست. */
 
 function closeLocalModeDialog(){
   const dlg = $('#localModeDialog');
@@ -1814,157 +1811,71 @@ function openLocalModeDialog(){
     <div class="reconnect-card">
       <div class="rc-icon-wrap">${icon('wifiOff',30)}</div>
       <div class="rc-title">بازی محلی، بدون اینترنت</div>
-      <div class="rc-sub">این حالت با اتصال مستقیم گوشی‌ها از طریق وای‌فای یا هات‌اسپات مشترک کار می‌کند، بدون نیاز به سرور یا اینترنت.</div>
+      <div class="rc-sub">یک نفر با اجرای سرور بازی روی گوشی یا لپ‌تاپ خودش میزبان می‌شود؛ بقیه از طریق وای‌فای یا هات‌اسپات مشترک با آدرس او وصل می‌شوند.</div>
       <div class="rc-actions">
-        <button type="button" class="btn btn-primary btn-block" id="lmHostBtn">من میزبانم (بازی را می‌سازم)</button>
-        <button type="button" class="btn btn-block" id="lmGuestBtn">می‌خواهم به یک بازی بپیوندم</button>
+        <button type="button" class="btn btn-primary btn-block" id="lmHostBtn">من میزبانم (سرور را اجرا می‌کنم)</button>
+        <button type="button" class="btn btn-block" id="lmGuestBtn">می‌خواهم به بازی میزبان وصل شوم</button>
         <button type="button" class="btn btn-ghost btn-block" id="lmCancelBtn">انصراف</button>
       </div>
     </div>`;
   dlg.classList.add('show');
   $('#lmCancelBtn').onclick = closeLocalModeDialog;
-  $('#lmHostBtn').onclick = startLocalHostFlow;
-  $('#lmGuestBtn').onclick = startLocalGuestFlow;
+  $('#lmHostBtn').onclick = renderHostInstructions;
+  $('#lmGuestBtn').onclick = renderGuestJoinForm;
 }
 
-function activateLocalSocket(sock){
-  intentionalClose = false;
-  localModeSocket = sock;
-  try{ ws && ws.close && ws.close(); }catch(e){}
-  ws = null;
-  connecting = false;
-  connectWs();
-}
-
-function startLocalHostFlow(){
-  localHostHandle = LocalMode.startHost();
-  renderHostInviteStep();
-}
-
-async function renderHostInviteStep(){
+function renderHostInstructions(){
   const dlg = $('#localModeDialog');
   dlg.innerHTML = `
     <div class="reconnect-card">
-      <div class="rc-title">دعوت‌نامه برای مهمان</div>
-      <div class="rc-sub">در حال ساخت کد اتصال... این کد را برای هم‌بازی خود بفرست (کپی/پیست یا خواندن با صدای بلند چون کوتاه نیست، بهتره کپی کنی).</div>
-      <div class="field"><textarea class="input" id="lmInviteCode" rows="4" readonly style="font-size:11px; direction:ltr; text-align:left;"></textarea></div>
-      <div class="rc-actions" style="flex-direction:row;gap:8px;">
-        <button type="button" class="btn btn-sm" id="lmCopyInvite">کپی کد</button>
-        <button type="button" class="btn btn-sm btn-primary" id="lmShowQrBtn">نمایش QR</button>
-      </div>
-      <div class="field" style="margin-top:14px;">
-        <label>کد پاسخِ مهمان را اینجا بچسبان</label>
-        <textarea class="input" id="lmAnswerCode" rows="4" style="font-size:11px; direction:ltr; text-align:left;" placeholder="KHT1:..."></textarea>
-        <button type="button" class="btn btn-sm" id="lmScanAnswerBtn" style="margin-top:8px;">اسکن QR پاسخ مهمان</button>
-      </div>
+      <div class="rc-title">میزبانیِ بازی محلی</div>
+      <div class="rc-sub">با این کار، خودِ گوشی یا لپ‌تاپ تو سرور بازی می‌شود؛ بقیه روی همین وای‌فای/هات‌اسپات بدون اینترنت به آن وصل می‌شوند.</div>
+      <ol style="font-size:13px; line-height:2; padding-inline-start:20px; margin:6px 0 16px; text-align:right;">
+        <li>هات‌اسپات گوشی خودت را روشن کن (یا همه به یک وای‌فای مشترک وصل باشید).</li>
+        <li>روی همین دستگاه، Node.js لازم است (روی اندروید می‌شود با Termux).</li>
+        <li>در پوشهٔ فایل‌های بازی دستور <code style="direction:ltr; unicode-bidi:embed; display:inline-block;">node server.js</code> را اجرا کن.</li>
+        <li>آی‌پی محلیِ دستگاهت را از تنظیمات وای‌فای/هات‌اسپات پیدا کن؛ چیزی شبیه <code style="direction:ltr; unicode-bidi:embed; display:inline-block;">192.168.43.1</code>.</li>
+        <li>این آدرس را همراه پورت <b>3000</b> به بقیه بده، مثلاً: <code style="direction:ltr; unicode-bidi:embed; display:inline-block;">192.168.43.1:3000</code></li>
+        <li>هرکس آن آدرس را در مرورگر گوشی خودش باز کند، مستقیم وارد همین بازی می‌شود؛ خودت هم برای بازی کردن همان صفحه‌ای را که سرور نشانت می‌دهد باز نگه دار.</li>
+      </ol>
       <div class="rc-actions">
-        <button type="button" class="btn btn-primary btn-block" id="lmConnectGuestBtn">اتصال این مهمان</button>
-        <button type="button" class="btn btn-block" id="lmAnotherGuestBtn">دعوت مهمان بعدی</button>
-        <button type="button" class="btn btn-primary btn-block" id="lmEnterGameBtn">ورود به بازی (به‌عنوان میزبان)</button>
-        <button type="button" class="btn btn-ghost btn-block" id="lmCancelBtn2">انصراف</button>
+        <button type="button" class="btn btn-ghost btn-block" id="lmBackBtn">بازگشت</button>
+        <button type="button" class="btn btn-primary btn-block" id="lmDoneBtn">متوجه شدم</button>
       </div>
     </div>`;
   dlg.classList.add('show');
-  $('#lmCancelBtn2').onclick = ()=>{ closeLocalModeDialog(); };
-  $('#lmEnterGameBtn').onclick = ()=>{ closeLocalModeDialog(); activateLocalSocket(localHostHandle.socket); };
-
-  let pendingGuest = null;
-  async function makeNewInvite(){
-    $('#lmInviteCode').value = 'در حال ساخت...';
-    pendingGuest = await localHostHandle.inviteNewGuest();
-    $('#lmInviteCode').value = pendingGuest.inviteCode;
-  }
-  $('#lmCopyInvite').onclick = ()=>{
-    $('#lmInviteCode').select();
-    try{ document.execCommand('copy'); toast('کد کپی شد'); }catch(e){}
-  };
-  $('#lmAnotherGuestBtn').onclick = makeNewInvite;
-  $('#lmConnectGuestBtn').onclick = async ()=>{
-    const answer = $('#lmAnswerCode').value.trim();
-    if(!answer || !pendingGuest){ toast('اول یک کد دعوت بساز و کد پاسخ مهمان را بچسبان'); return; }
-    try{
-      await pendingGuest.acceptAnswer(answer);
-      toast('مهمان وصل شد ✅');
-      $('#lmAnswerCode').value = '';
-    }catch(e){ toast('اتصال ناموفق بود، دوباره تلاش کن'); }
-  };
-  $('#lmShowQrBtn').onclick = ()=>{
-    if(!pendingGuest){ toast('اول یک کد دعوت بساز'); return; }
-    QR.openQrCarousel(pendingGuest.inviteCode, {
-      title: 'کد دعوت (QR)',
-      subtitle: 'مهمان این کد(ها) را با دکمه «اسکن QR کد میزبان» بخواند.'
-    });
-  };
-  $('#lmScanAnswerBtn').onclick = ()=>{
-    QR.openQrScanner({
-      title: 'اسکن کد پاسخ مهمان',
-      onComplete: (full)=>{ $('#lmAnswerCode').value = full; toast('کد پاسخ دریافت شد؛ حالا «اتصال این مهمان» را بزن'); },
-      onUnsupported: ()=> toast('مرورگر شما اسکن QR را پشتیبانی نمی‌کند؛ از کپی/پیست استفاده کن')
-    });
-  };
-  await makeNewInvite();
+  $('#lmBackBtn').onclick = openLocalModeDialog;
+  $('#lmDoneBtn').onclick = closeLocalModeDialog;
 }
 
-function startLocalGuestFlow(){
+function renderGuestJoinForm(){
   const dlg = $('#localModeDialog');
   dlg.innerHTML = `
     <div class="reconnect-card">
       <div class="rc-title">پیوستن به بازی محلی</div>
-      <div class="rc-sub">کد دعوتی که میزبان به تو داده را اینجا بچسبان.</div>
-      <div class="field"><textarea class="input" id="lmHostCode" rows="4" style="font-size:11px; direction:ltr; text-align:left;" placeholder="KHT1:..."></textarea></div>
-      <button type="button" class="btn btn-sm" id="lmScanHostBtn" style="margin-bottom:10px;">اسکن QR کد میزبان</button>
+      <div class="rc-sub">اول به وای‌فای یا هات‌اسپاتِ میزبان وصل شو، بعد آدرسی که او داده را اینجا بنویس.</div>
+      <div class="field">
+        <label>آدرس میزبان</label>
+        <input class="input" id="lmHostAddr" type="text" inputmode="url" placeholder="192.168.43.1:3000" style="direction:ltr; text-align:left;">
+      </div>
       <div class="rc-actions">
-        <button type="button" class="btn btn-primary btn-block" id="lmJoinBtn">ساخت کد پاسخ</button>
-        <button type="button" class="btn btn-ghost btn-block" id="lmCancelBtn3">انصراف</button>
+        <button type="button" class="btn btn-primary btn-block" id="lmGoBtn">اتصال</button>
+        <button type="button" class="btn btn-ghost btn-block" id="lmBackBtn2">بازگشت</button>
       </div>
     </div>`;
   dlg.classList.add('show');
-  $('#lmCancelBtn3').onclick = closeLocalModeDialog;
-  $('#lmScanHostBtn').onclick = ()=>{
-    QR.openQrScanner({
-      title: 'اسکن کد دعوت میزبان',
-      onComplete: (full)=>{ $('#lmHostCode').value = full; toast('کد میزبان دریافت شد؛ حالا «ساخت کد پاسخ» را بزن'); },
-      onUnsupported: ()=> toast('مرورگر شما اسکن QR را پشتیبانی نمی‌کند؛ از کپی/پیست استفاده کن')
-    });
-  };
-  $('#lmJoinBtn').onclick = async ()=>{
-    const hostCode = $('#lmHostCode').value.trim();
-    if(!hostCode){ toast('کد میزبان را بچسبان'); return; }
-    const guest = LocalMode.startGuest();
-    let answerCode;
-    try{ answerCode = await guest.joinWithInviteCode(hostCode); }
-    catch(e){ toast('کد نامعتبر است'); return; }
-    dlg.innerHTML = `
-      <div class="reconnect-card">
-        <div class="rc-title">کد پاسخ تو</div>
-        <div class="rc-sub">این کد را برای میزبان بفرست تا اتصال کامل شود.</div>
-        <div class="field"><textarea class="input" id="lmMyAnswerCode" rows="4" readonly style="font-size:11px; direction:ltr; text-align:left;">${answerCode}</textarea></div>
-        <div class="rc-status"><span class="rc-dot"></span><span>منتظر اتصال میزبان...</span></div>
-        <div class="rc-actions" style="flex-direction:row;gap:8px;">
-          <button type="button" class="btn btn-sm" id="lmCopyAnswer">کپی کد</button>
-          <button type="button" class="btn btn-sm btn-primary" id="lmShowAnswerQrBtn">نمایش QR</button>
-        </div>
-        <div class="rc-actions">
-          <button type="button" class="btn btn-ghost btn-block" id="lmCancelBtn4">انصراف</button>
-        </div>
-      </div>`;
-    $('#lmCancelBtn4').onclick = closeLocalModeDialog;
-    $('#lmCopyAnswer').onclick = ()=>{
-      $('#lmMyAnswerCode').select();
-      try{ document.execCommand('copy'); toast('کد کپی شد'); }catch(e){}
-    };
-    $('#lmShowAnswerQrBtn').onclick = ()=>{
-      QR.openQrCarousel(answerCode, {
-        title: 'کد پاسخ (QR)',
-        subtitle: 'میزبان این کد(ها) را با دکمه «اسکن QR پاسخ مهمان» بخواند.'
-      });
-    };
-    guest.socket.addEventListener('open', ()=>{
-      closeLocalModeDialog();
-      activateLocalSocket(guest.socket);
-      toast('به میزبان وصل شدی ✅');
-    });
-  };
+  $('#lmBackBtn2').onclick = openLocalModeDialog;
+  const input = $('#lmHostAddr');
+  input.focus();
+  function go(){
+    let addr = input.value.trim();
+    if(!addr){ toast('آدرس میزبان را بنویس'); return; }
+    addr = addr.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    if(!/:\d+$/.test(addr)) addr += ':3000';
+    location.href = 'http://' + addr + '/';
+  }
+  $('#lmGoBtn').onclick = go;
+  input.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') go(); });
 }
 
 function connectWs(){
@@ -1973,13 +1884,8 @@ function connectWs(){
 
   connecting = true;
   clearTimeout(reconnectTimer);
-  let sock;
-  if(localModeSocket){
-    sock = localModeSocket;
-  } else {
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    sock = new WebSocket(proto + '//' + location.host);
-  }
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const sock = new WebSocket(proto + '//' + location.host);
   ws = sock;
 
   sock.addEventListener('open', ()=>{
