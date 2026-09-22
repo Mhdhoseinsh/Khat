@@ -1380,6 +1380,8 @@ canvas#board{
 <div id="returnConfirmDialog" class="reconnect-overlay"></div>
 <div id="localModeDialog" class="reconnect-overlay"></div>
 <div id="app"></div>
+<script src="qrcode-gen.bundle.js"></script>
+<script src="qr-chunks.js"></script>
 <script src="p2p-transport.js"></script>
 <script src="local-engine.js"></script>
 <script src="local-mode.js"></script>
@@ -1846,10 +1848,14 @@ async function renderHostInviteStep(){
       <div class="rc-title">دعوت‌نامه برای مهمان</div>
       <div class="rc-sub">در حال ساخت کد اتصال... این کد را برای هم‌بازی خود بفرست (کپی/پیست یا خواندن با صدای بلند چون کوتاه نیست، بهتره کپی کنی).</div>
       <div class="field"><textarea class="input" id="lmInviteCode" rows="4" readonly style="font-size:11px; direction:ltr; text-align:left;"></textarea></div>
-      <button type="button" class="btn btn-sm" id="lmCopyInvite">کپی کد</button>
+      <div class="rc-actions" style="flex-direction:row;gap:8px;">
+        <button type="button" class="btn btn-sm" id="lmCopyInvite">کپی کد</button>
+        <button type="button" class="btn btn-sm btn-primary" id="lmShowQrBtn">نمایش QR</button>
+      </div>
       <div class="field" style="margin-top:14px;">
         <label>کد پاسخِ مهمان را اینجا بچسبان</label>
         <textarea class="input" id="lmAnswerCode" rows="4" style="font-size:11px; direction:ltr; text-align:left;" placeholder="KHT1:..."></textarea>
+        <button type="button" class="btn btn-sm" id="lmScanAnswerBtn" style="margin-top:8px;">اسکن QR پاسخ مهمان</button>
       </div>
       <div class="rc-actions">
         <button type="button" class="btn btn-primary btn-block" id="lmConnectGuestBtn">اتصال این مهمان</button>
@@ -1882,6 +1888,20 @@ async function renderHostInviteStep(){
       $('#lmAnswerCode').value = '';
     }catch(e){ toast('اتصال ناموفق بود، دوباره تلاش کن'); }
   };
+  $('#lmShowQrBtn').onclick = ()=>{
+    if(!pendingGuest){ toast('اول یک کد دعوت بساز'); return; }
+    QR.openQrCarousel(pendingGuest.inviteCode, {
+      title: 'کد دعوت (QR)',
+      subtitle: 'مهمان این کد(ها) را با دکمه «اسکن QR کد میزبان» بخواند.'
+    });
+  };
+  $('#lmScanAnswerBtn').onclick = ()=>{
+    QR.openQrScanner({
+      title: 'اسکن کد پاسخ مهمان',
+      onComplete: (full)=>{ $('#lmAnswerCode').value = full; toast('کد پاسخ دریافت شد؛ حالا «اتصال این مهمان» را بزن'); },
+      onUnsupported: ()=> toast('مرورگر شما اسکن QR را پشتیبانی نمی‌کند؛ از کپی/پیست استفاده کن')
+    });
+  };
   await makeNewInvite();
 }
 
@@ -1892,6 +1912,7 @@ function startLocalGuestFlow(){
       <div class="rc-title">پیوستن به بازی محلی</div>
       <div class="rc-sub">کد دعوتی که میزبان به تو داده را اینجا بچسبان.</div>
       <div class="field"><textarea class="input" id="lmHostCode" rows="4" style="font-size:11px; direction:ltr; text-align:left;" placeholder="KHT1:..."></textarea></div>
+      <button type="button" class="btn btn-sm" id="lmScanHostBtn" style="margin-bottom:10px;">اسکن QR کد میزبان</button>
       <div class="rc-actions">
         <button type="button" class="btn btn-primary btn-block" id="lmJoinBtn">ساخت کد پاسخ</button>
         <button type="button" class="btn btn-ghost btn-block" id="lmCancelBtn3">انصراف</button>
@@ -1899,6 +1920,13 @@ function startLocalGuestFlow(){
     </div>`;
   dlg.classList.add('show');
   $('#lmCancelBtn3').onclick = closeLocalModeDialog;
+  $('#lmScanHostBtn').onclick = ()=>{
+    QR.openQrScanner({
+      title: 'اسکن کد دعوت میزبان',
+      onComplete: (full)=>{ $('#lmHostCode').value = full; toast('کد میزبان دریافت شد؛ حالا «ساخت کد پاسخ» را بزن'); },
+      onUnsupported: ()=> toast('مرورگر شما اسکن QR را پشتیبانی نمی‌کند؛ از کپی/پیست استفاده کن')
+    });
+  };
   $('#lmJoinBtn').onclick = async ()=>{
     const hostCode = $('#lmHostCode').value.trim();
     if(!hostCode){ toast('کد میزبان را بچسبان'); return; }
@@ -1912,8 +1940,11 @@ function startLocalGuestFlow(){
         <div class="rc-sub">این کد را برای میزبان بفرست تا اتصال کامل شود.</div>
         <div class="field"><textarea class="input" id="lmMyAnswerCode" rows="4" readonly style="font-size:11px; direction:ltr; text-align:left;">${answerCode}</textarea></div>
         <div class="rc-status"><span class="rc-dot"></span><span>منتظر اتصال میزبان...</span></div>
-        <div class="rc-actions">
+        <div class="rc-actions" style="flex-direction:row;gap:8px;">
           <button type="button" class="btn btn-sm" id="lmCopyAnswer">کپی کد</button>
+          <button type="button" class="btn btn-sm btn-primary" id="lmShowAnswerQrBtn">نمایش QR</button>
+        </div>
+        <div class="rc-actions">
           <button type="button" class="btn btn-ghost btn-block" id="lmCancelBtn4">انصراف</button>
         </div>
       </div>`;
@@ -1921,6 +1952,12 @@ function startLocalGuestFlow(){
     $('#lmCopyAnswer').onclick = ()=>{
       $('#lmMyAnswerCode').select();
       try{ document.execCommand('copy'); toast('کد کپی شد'); }catch(e){}
+    };
+    $('#lmShowAnswerQrBtn').onclick = ()=>{
+      QR.openQrCarousel(answerCode, {
+        title: 'کد پاسخ (QR)',
+        subtitle: 'میزبان این کد(ها) را با دکمه «اسکن QR پاسخ مهمان» بخواند.'
+      });
     };
     guest.socket.addEventListener('open', ()=>{
       closeLocalModeDialog();
