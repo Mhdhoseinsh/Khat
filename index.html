@@ -1378,7 +1378,11 @@ canvas#board{
 <div id="toast"></div>
 <div id="reconnectDialog" class="reconnect-overlay"></div>
 <div id="returnConfirmDialog" class="reconnect-overlay"></div>
+<div id="localModeDialog" class="reconnect-overlay"></div>
 <div id="app"></div>
+<script src="p2p-transport.js"></script>
+<script src="local-engine.js"></script>
+<script src="local-mode.js"></script>
 <script>
 (function(){
 "use strict";
@@ -1791,14 +1795,154 @@ function clearSession(){
   try{ sessionStorage.removeItem('khatkhati_session'); }catch(e){}
 }
 
+/* ============================= حالت محلی (بدون اینترنت) ============================= */
+let localModeSocket = null; /* وقتی ست بشه، به‌جای WebSocket واقعی از این استفاده می‌شه */
+let localHostHandle = null; /* فقط برای میزبان: {socket, inviteNewGuest} */
+
+function closeLocalModeDialog(){
+  const dlg = $('#localModeDialog');
+  if(!dlg) return;
+  dlg.classList.remove('show');
+  dlg.innerHTML = '';
+}
+function openLocalModeDialog(){
+  const dlg = $('#localModeDialog');
+  if(!dlg) return;
+  dlg.innerHTML = `
+    <div class="reconnect-card">
+      <div class="rc-icon-wrap">${icon('wifiOff',30)}</div>
+      <div class="rc-title">بازی محلی، بدون اینترنت</div>
+      <div class="rc-sub">این حالت با اتصال مستقیم گوشی‌ها از طریق وای‌فای یا هات‌اسپات مشترک کار می‌کند، بدون نیاز به سرور یا اینترنت.</div>
+      <div class="rc-actions">
+        <button type="button" class="btn btn-primary btn-block" id="lmHostBtn">من میزبانم (بازی را می‌سازم)</button>
+        <button type="button" class="btn btn-block" id="lmGuestBtn">می‌خواهم به یک بازی بپیوندم</button>
+        <button type="button" class="btn btn-ghost btn-block" id="lmCancelBtn">انصراف</button>
+      </div>
+    </div>`;
+  dlg.classList.add('show');
+  $('#lmCancelBtn').onclick = closeLocalModeDialog;
+  $('#lmHostBtn').onclick = startLocalHostFlow;
+  $('#lmGuestBtn').onclick = startLocalGuestFlow;
+}
+
+function activateLocalSocket(sock){
+  intentionalClose = false;
+  localModeSocket = sock;
+  try{ ws && ws.close && ws.close(); }catch(e){}
+  ws = null;
+  connecting = false;
+  connectWs();
+}
+
+function startLocalHostFlow(){
+  localHostHandle = LocalMode.startHost();
+  renderHostInviteStep();
+}
+
+async function renderHostInviteStep(){
+  const dlg = $('#localModeDialog');
+  dlg.innerHTML = `
+    <div class="reconnect-card">
+      <div class="rc-title">دعوت‌نامه برای مهمان</div>
+      <div class="rc-sub">در حال ساخت کد اتصال... این کد را برای هم‌بازی خود بفرست (کپی/پیست یا خواندن با صدای بلند چون کوتاه نیست، بهتره کپی کنی).</div>
+      <div class="field"><textarea class="input" id="lmInviteCode" rows="4" readonly style="font-size:11px; direction:ltr; text-align:left;"></textarea></div>
+      <button type="button" class="btn btn-sm" id="lmCopyInvite">کپی کد</button>
+      <div class="field" style="margin-top:14px;">
+        <label>کد پاسخِ مهمان را اینجا بچسبان</label>
+        <textarea class="input" id="lmAnswerCode" rows="4" style="font-size:11px; direction:ltr; text-align:left;" placeholder="KHT1:..."></textarea>
+      </div>
+      <div class="rc-actions">
+        <button type="button" class="btn btn-primary btn-block" id="lmConnectGuestBtn">اتصال این مهمان</button>
+        <button type="button" class="btn btn-block" id="lmAnotherGuestBtn">دعوت مهمان بعدی</button>
+        <button type="button" class="btn btn-primary btn-block" id="lmEnterGameBtn">ورود به بازی (به‌عنوان میزبان)</button>
+        <button type="button" class="btn btn-ghost btn-block" id="lmCancelBtn2">انصراف</button>
+      </div>
+    </div>`;
+  dlg.classList.add('show');
+  $('#lmCancelBtn2').onclick = ()=>{ closeLocalModeDialog(); };
+  $('#lmEnterGameBtn').onclick = ()=>{ closeLocalModeDialog(); activateLocalSocket(localHostHandle.socket); };
+
+  let pendingGuest = null;
+  async function makeNewInvite(){
+    $('#lmInviteCode').value = 'در حال ساخت...';
+    pendingGuest = await localHostHandle.inviteNewGuest();
+    $('#lmInviteCode').value = pendingGuest.inviteCode;
+  }
+  $('#lmCopyInvite').onclick = ()=>{
+    $('#lmInviteCode').select();
+    try{ document.execCommand('copy'); toast('کد کپی شد'); }catch(e){}
+  };
+  $('#lmAnotherGuestBtn').onclick = makeNewInvite;
+  $('#lmConnectGuestBtn').onclick = async ()=>{
+    const answer = $('#lmAnswerCode').value.trim();
+    if(!answer || !pendingGuest){ toast('اول یک کد دعوت بساز و کد پاسخ مهمان را بچسبان'); return; }
+    try{
+      await pendingGuest.acceptAnswer(answer);
+      toast('مهمان وصل شد ✅');
+      $('#lmAnswerCode').value = '';
+    }catch(e){ toast('اتصال ناموفق بود، دوباره تلاش کن'); }
+  };
+  await makeNewInvite();
+}
+
+function startLocalGuestFlow(){
+  const dlg = $('#localModeDialog');
+  dlg.innerHTML = `
+    <div class="reconnect-card">
+      <div class="rc-title">پیوستن به بازی محلی</div>
+      <div class="rc-sub">کد دعوتی که میزبان به تو داده را اینجا بچسبان.</div>
+      <div class="field"><textarea class="input" id="lmHostCode" rows="4" style="font-size:11px; direction:ltr; text-align:left;" placeholder="KHT1:..."></textarea></div>
+      <div class="rc-actions">
+        <button type="button" class="btn btn-primary btn-block" id="lmJoinBtn">ساخت کد پاسخ</button>
+        <button type="button" class="btn btn-ghost btn-block" id="lmCancelBtn3">انصراف</button>
+      </div>
+    </div>`;
+  dlg.classList.add('show');
+  $('#lmCancelBtn3').onclick = closeLocalModeDialog;
+  $('#lmJoinBtn').onclick = async ()=>{
+    const hostCode = $('#lmHostCode').value.trim();
+    if(!hostCode){ toast('کد میزبان را بچسبان'); return; }
+    const guest = LocalMode.startGuest();
+    let answerCode;
+    try{ answerCode = await guest.joinWithInviteCode(hostCode); }
+    catch(e){ toast('کد نامعتبر است'); return; }
+    dlg.innerHTML = `
+      <div class="reconnect-card">
+        <div class="rc-title">کد پاسخ تو</div>
+        <div class="rc-sub">این کد را برای میزبان بفرست تا اتصال کامل شود.</div>
+        <div class="field"><textarea class="input" id="lmMyAnswerCode" rows="4" readonly style="font-size:11px; direction:ltr; text-align:left;">${answerCode}</textarea></div>
+        <div class="rc-status"><span class="rc-dot"></span><span>منتظر اتصال میزبان...</span></div>
+        <div class="rc-actions">
+          <button type="button" class="btn btn-sm" id="lmCopyAnswer">کپی کد</button>
+          <button type="button" class="btn btn-ghost btn-block" id="lmCancelBtn4">انصراف</button>
+        </div>
+      </div>`;
+    $('#lmCancelBtn4').onclick = closeLocalModeDialog;
+    $('#lmCopyAnswer').onclick = ()=>{
+      $('#lmMyAnswerCode').select();
+      try{ document.execCommand('copy'); toast('کد کپی شد'); }catch(e){}
+    };
+    guest.socket.addEventListener('open', ()=>{
+      closeLocalModeDialog();
+      activateLocalSocket(guest.socket);
+      toast('به میزبان وصل شدی ✅');
+    });
+  };
+}
+
 function connectWs(){
   if(connecting) return;
   if(ws && ws.readyState === 1) return;
 
   connecting = true;
   clearTimeout(reconnectTimer);
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const sock = new WebSocket(proto + '//' + location.host);
+  let sock;
+  if(localModeSocket){
+    sock = localModeSocket;
+  } else {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    sock = new WebSocket(proto + '//' + location.host);
+  }
   ws = sock;
 
   sock.addEventListener('open', ()=>{
@@ -2215,6 +2359,7 @@ function mountHome(){
           </div>
 
           <button class="home-cta" id="primaryActionBtn"></button>
+          <button class="btn btn-ghost btn-block btn-sm" id="localModeBtn" style="margin-top:10px;">${icon('wifiOff',14)}<span>بازی دور هم، بدون اینترنت (وای‌فای/هات‌اسپات)</span></button>
         </div>
       </div>
 
@@ -2261,6 +2406,7 @@ function mountHome(){
   $('#roomNameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onCreateRoom(); });
   $('#codeInput').addEventListener('keydown', e=>{ if(e.key==='Enter') onJoinRoom(); });
   if(prefillCode) setTimeout(()=> $('#codeInput').focus(), 50);
+  $('#localModeBtn').onclick = openLocalModeDialog;
 }
 
 function renderPublicRoomsList(){

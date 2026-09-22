@@ -1,94 +1,30 @@
-/* خط‌خطی — server.js */
+/* ============================================================
+   local-engine.js — موتور کامل بازی خط‌خطی، اجراشونده داخل مرورگر
+   (نسخه‌ی وفق‌داده‌شده از server.js برای «حالت محلی بدون اینترنت»)
+   ============================================================
+   این فایل عیناً همان منطق بازی (اتاق‌ها، نوبت‌ها، امتیازدهی، حدس کلمه)
+   را دارد که در server.js روی سرور آنلاین اجرا می‌شود؛ فقط لایه‌ی
+   ارسال پیام (sendText) به‌جای وب‌ساکت خام، از متد send() روی هر
+   "socket" انتزاعی استفاده می‌کند — این socket می‌تواند یک
+   RTCDataChannel (برای مهمان‌های راه‌دور) یا یک لوپ‌بک محلی
+   (برای خودِ میزبان) باشد. بقیه‌ی کد دست‌نخورده است.
+
+   استفاده:
+     const engine = createLocalEngine();
+     engine.handleMessage(conn, msg);   // conn = {roomCode, playerId, socket}
+     engine.handleDisconnect(conn);
+     // conn.socket باید متد send(str) داشته باشد.
+*/
+function createLocalEngine(){
 'use strict';
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+const ADVANCE_DELAY = 7000;
+const READY_COUNTDOWN_MS = 10000;
+const DISCONNECT_GRACE_MS = 60 * 1000;
+const REPLAY_WINDOW_MS = 45000;
 
-const PORT = process.env.PORT || 3000;
-const ADVANCE_DELAY = process.env.FAST_TEST === '1' ? 300 : 7000;
-const READY_COUNTDOWN_MS = process.env.FAST_TEST === '1' ? 800 : 10000;
-const DISCONNECT_GRACE_MS = 60 * 1000; /* ۱ دقیقه فرصت برگشت */
-const REPLAY_WINDOW_MS = process.env.FAST_TEST === '1' ? 2000 : 45000;
-
-/* ============================= static file ============================= */
-const indexPath = path.join(__dirname, 'index.html');
-function loadIndex(){ return fs.readFileSync(indexPath); }
-let indexHtml = loadIndex();
-
-/* ============================= WebSocket (RFC 6455) ============================= */
-const WS_MAGIC = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
-function acceptKey(key){
-  return crypto.createHash('sha1').update(key + WS_MAGIC).digest('base64');
-}
-function encodeFrame(opcode, payload){
-  const len = payload.length;
-  let header;
-  if(len < 126){
-    header = Buffer.alloc(2);
-    header[0] = 0x80 | opcode;
-    header[1] = len;
-  } else if(len < 65536){
-    header = Buffer.alloc(4);
-    header[0] = 0x80 | opcode;
-    header[1] = 126;
-    header.writeUInt16BE(len, 2);
-  } else {
-    header = Buffer.alloc(10);
-    header[0] = 0x80 | opcode;
-    header[1] = 127;
-    header.writeUInt32BE(0, 2);
-    header.writeUInt32BE(len, 6);
-  }
-  return Buffer.concat([header, payload]);
-}
 function sendText(socket, str){
-  try{ socket.write(encodeFrame(0x1, Buffer.from(str, 'utf8'))); }catch(e){}
+  try{ socket.send(str); }catch(e){}
 }
-function sendPing(socket){ try{ socket.write(encodeFrame(0x9, Buffer.alloc(0))); }catch(e){} }
-function sendPong(socket, payload){ try{ socket.write(encodeFrame(0xA, payload)); }catch(e){} }
-
-function makeFrameParser(onFrame){
-  let buf = Buffer.alloc(0);
-  return function feed(chunk){
-    buf = buf.length ? Buffer.concat([buf, chunk]) : chunk;
-    while(true){
-      if(buf.length < 2) return;
-      const b0 = buf[0], b1 = buf[1];
-      const opcode = b0 & 0x0f;
-      const masked = (b1 & 0x80) !== 0;
-      let len = b1 & 0x7f;
-      let offset = 2;
-      if(len === 126){
-        if(buf.length < 4) return;
-        len = buf.readUInt16BE(2);
-        offset = 4;
-      } else if(len === 127){
-        if(buf.length < 10) return;
-        len = buf.readUInt32BE(6);
-        offset = 10;
-      }
-      let maskKey = null;
-      if(masked){
-        if(buf.length < offset + 4) return;
-        maskKey = buf.slice(offset, offset + 4);
-        offset += 4;
-      }
-      if(buf.length < offset + len) return;
-      let payload = buf.slice(offset, offset + len);
-      if(masked){
-        const un = Buffer.alloc(len);
-        for(let i=0;i<len;i++) un[i] = payload[i] ^ maskKey[i % 4];
-        payload = un;
-      }
-      buf = buf.slice(offset + len);
-      onFrame(opcode, payload);
-    }
-  };
-}
-
-/* ============================= live connections ============================= */
-const liveConns = new Set();
 
 /* ============================= game utils ============================= */
 function genId(p){ return (p||'id') + '_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
@@ -566,19 +502,8 @@ function handlePlayerLeave(room, playerId){
 
 /* ============================= لیست عمومی زنده ============================= */
 function broadcastPublicRooms(){
-  const list = [];
-  rooms.forEach(room=>{
-    if(!room.isPublic || room.status !== 'lobby') return;
-    const count = activePlayers(room).length;
-    if(count === 0 || count >= 8) return;
-    list.push({ code: room.code, roomName: room.name || 'اتاق بازی', playerCount: count });
-  });
-  list.sort((a,b)=> b.playerCount - a.playerCount);
-  const payload = JSON.stringify({type:'publicRoomsList', rooms: list});
-  liveConns.forEach(conn=>{
-    if(conn.roomCode) return;
-    try{ conn.socket.write(encodeFrame(0x1, Buffer.from(payload, 'utf8'))); }catch(e){}
-  });
+  /* در حالت محلی (بدون اینترنت) مفهوم «لیست عمومی اتاق‌ها» وجود ندارد؛
+     این تابع عمداً کاری انجام نمی‌دهد تا بقیه‌ی موتور بدون تغییر کار کند. */
 }
 
 /* ============================= message handling ============================= */
@@ -847,56 +772,6 @@ function handleDisconnect(conn){
   scheduleEmptyCleanup(room);
 }
 
-/* ============================= HTTP + upgrade ============================= */
-const server = http.createServer((req, res)=>{
-  if(req.url === '/health'){ res.writeHead(200,{'Content-Type':'text/plain'}); res.end('ok'); return; }
-  res.writeHead(200, {'Content-Type':'text/html; charset=utf-8'});
-  res.end(indexHtml);
-});
-
-server.on('upgrade', (req, socket)=>{
-  if((req.headers['upgrade']||'').toLowerCase() !== 'websocket'){ socket.destroy(); return; }
-  const key = req.headers['sec-websocket-key'];
-  if(!key){ socket.destroy(); return; }
-  const accept = acceptKey(key);
-  socket.write([
-    'HTTP/1.1 101 Switching Protocols',
-    'Upgrade: websocket',
-    'Connection: Upgrade',
-    `Sec-WebSocket-Accept: ${accept}`,
-    '', ''
-  ].join('\r\n'));
-
-  const conn = { socket, roomCode:null, playerId:null, lastPong: Date.now() };
-  liveConns.add(conn);
-  const feed = makeFrameParser((opcode, payload)=>{
-    if(opcode === 0x8){ try{ socket.end(); }catch(e){} return; }
-    if(opcode === 0x9){ sendPong(socket, payload); return; }
-    if(opcode === 0xA){ conn.lastPong = Date.now(); return; }
-    if(opcode === 0x1){
-      let msg;
-      try{ msg = JSON.parse(payload.toString('utf8')); }catch(e){ return; }
-      conn.lastPong = Date.now();
-      try{ handleMessage(conn, msg); }catch(e){ console.error('handleMessage error:', e); }
-    }
-  });
-  socket.on('data', feed);
-  socket.on('close', ()=>{ liveConns.delete(conn); try{ handleDisconnect(conn); }catch(e){} });
-  socket.on('error', ()=>{ liveConns.delete(conn); try{ handleDisconnect(conn); }catch(e){} });
-  socket.setTimeout(0);
-});
-
-setInterval(()=>{
-  const now = Date.now();
-  liveConns.forEach(conn=>{
-    if(now - conn.lastPong > 70000){
-      liveConns.delete(conn);
-      try{ conn.socket.destroy(); }catch(e){}
-      try{ handleDisconnect(conn); }catch(e){}
-    } else {
-      sendPing(conn.socket);
-    }
-  });
-}, 25000);
-
-server.listen(PORT, ()=>{ console.log('خط‌خطی server listening on port ' + PORT); });
+return { handleMessage, handleDisconnect, rooms };
+}
+if(typeof window !== 'undefined') window.createLocalEngine = createLocalEngine;
