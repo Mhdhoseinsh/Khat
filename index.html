@@ -1134,11 +1134,14 @@ canvas#board{
 .tool-actions button:hover{background:rgba(255,255,255,.05); color:var(--text);}
 .tool-actions button svg{width:16px; height:16px;}
 
-.guess-area{display:flex; flex-direction:column; gap:var(--s3);}
+.guess-area{display:flex; flex-direction:column; gap:var(--s3); overflow-anchor:none;}
+/* پیام‌های چت زیر گزینه‌ها می‌آیند تا با ظاهر شدن پیام، گزینه‌ها جابه‌جا نشوند */
+.guess-options{order:1;}
 .chat-strip{
+  order:2;
   display:flex; flex-direction:column; gap:6px;
   max-height:88px; overflow-y:auto;
-  scrollbar-width:thin;
+  scrollbar-width:thin; overflow-anchor:none;
 }
 .chat-strip:empty{display:none;}
 .chat-msg{
@@ -1425,7 +1428,9 @@ const SFX = {
       this.ctx = new AC();
       this.master = this.ctx.createGain();
       this.master.gain.value = this.enabled ? 0.95 : 0;
-      this.master.connect(this.ctx.destination);
+      this.comp = this.ctx.createDynamicsCompressor();
+      this.master.connect(this.comp);
+      this.comp.connect(this.ctx.destination);
       this.sfxGain = this.ctx.createGain();
       this.sfxGain.gain.value = 0.9;
       this.sfxGain.connect(this.master);
@@ -1434,7 +1439,11 @@ const SFX = {
       this.musicGain.connect(this.master);
     }catch(e){ this.ctx = null; }
   },
-  resume(){ if(this.ctx && this.ctx.state === 'suspended'){ try{ this.ctx.resume(); }catch(e){} } },
+  resume(){
+    if(this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed'){
+      try{ const p = this.ctx.resume(); if(p && p.catch) p.catch(()=>{}); }catch(e){}
+    }
+  },
   setEnabled(v){
     this.enabled = v;
     if(this.master) this.master.gain.value = v ? 0.95 : 0;
@@ -1545,7 +1554,7 @@ const SFX = {
     this.tone(130.81, 1.0, {t:'sawtooth', v:0.16, d:0.05});
   },
 
-  currentTrack: null,
+  currentTrack: null, _musicGen: 0, _hatBuf: null,
   startMusic(track){
     track = track || 'game';
     this.boot(); this.resume();
@@ -1553,57 +1562,70 @@ const SFX = {
     if(this.musicTimer && this.currentTrack === track) return;
     this.stopMusic();
     this.currentTrack = track;
-    if(track === 'menu') this._startMenuLoop();
-    else this._startGameLoop();
+    this._startLoop(track);
   },
   stopMusic(){
+    this._musicGen++;
     if(this.musicTimer){ clearInterval(this.musicTimer); this.musicTimer = null; }
     this.currentTrack = null;
   },
 
-  _startGameLoop(){
-    const notes = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33];
-    const melody = [4, 6, 4, 2, 0, 2, 4, 5, 6, 4, 6, 4, 5, 4, 2, 0, 2];
-    const bass = [0, 0, 3, 3, 4, 4, 0, 0];
-    let step = 0;
-    const play = ()=>{
-      if(!this.enabled || !this.ctx) return;
-      const n = notes[melody[step % melody.length]];
-      this.musicTone(n, 0.26, 0.11, 'triangle');
-      if(step % 2 === 0){
-        const bn = notes[bass[Math.floor(step/2) % bass.length]] / 4;
-        this.musicTone(bn, 0.48, 0.08, 'sawtooth');
+  /* زمان‌بندی دقیق با «پیش‌نگری»: نت‌ها کمی جلوتر روی ساعت خودِ AudioContext
+     برنامه‌ریزی می‌شوند، نه با setInterval (که در مرورگر لرزش دارد و باعث
+     ناهمگنی ریتم و در نهایت هنگ‌کردن صدا می‌شد). اگر صدا موقتاً متوقف شود،
+     نت‌های عقب‌افتاده یک‌جا پخش نمی‌شوند. */
+  _startLoop(track){
+    const isMenu = track === 'menu';
+    const gen = ++this._musicGen;
+    let step = 0, nextTime = 0;
+    let play, stepDur;
+
+    if(isMenu){
+      const notes = [293.66, 349.23, 392.00, 440.00, 523.25, 587.33, 659.25];
+      const melody = [0, 2, 4, 2, 5, 4, 2, 0, 1, 3, 4, 3, 2, 4, 0, 2];
+      const bass = [0, 0, 3, 3];
+      stepDur = 0.3;
+      play = (st, t)=>{
+        this.musicTone(notes[melody[st % melody.length]], 0.42, 0.085, 'triangle', 1500, t);
+        if(st % 4 === 0) this.musicTone(notes[bass[(st/4) % bass.length]] / 4, 0.9, 0.06, 'sine', 900, t);
+        if(st % 8 === 6) this.musicHat(0.035, t);
+      };
+    } else {
+      const notes = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33];
+      const melody = [4, 6, 4, 2, 0, 2, 4, 5, 6, 4, 6, 4, 5, 4, 2, 0, 2];
+      const bass = [0, 0, 3, 3, 4, 4, 0, 0];
+      stepDur = 0.21;
+      play = (st, t)=>{
+        this.musicTone(notes[melody[st % melody.length]], 0.26, 0.11, 'triangle', 2200, t);
+        if(st % 2 === 0) this.musicTone(notes[bass[Math.floor(st/2) % bass.length]] / 4, 0.48, 0.08, 'sawtooth', 2200, t);
+        if(st % 4 === 2) this.musicHat(0.06, t);
+      };
+    }
+
+    const LOOKAHEAD = 0.4;
+    const pump = ()=>{
+      if(gen !== this._musicGen || !this.ctx || !this.enabled) return;
+      if(this.ctx.state !== 'running'){
+        nextTime = 0;                       /* وقتی ساعت صدا ایستاده، چیزی برنامه‌ریزی نکن */
+        if(document.visibilityState === 'visible') this.resume();
+        return;
       }
-      if(step % 4 === 2) this.musicHat();
-      step++;
+      const now = this.ctx.currentTime;
+      if(nextTime < now - 0.05) nextTime = now + 0.06;   /* عقب افتاده یا تازه ادامه یافته: از نو، بدون انباشت */
+      while(nextTime < now + LOOKAHEAD){
+        play(step, nextTime);
+        step++;
+        nextTime += stepDur;
+      }
     };
-    play();
-    this.musicTimer = setInterval(play, 210);
+    pump();
+    this.musicTimer = setInterval(pump, 120);
   },
 
-  _startMenuLoop(){
-    const notes = [293.66, 349.23, 392.00, 440.00, 523.25, 587.33, 659.25];
-    const melody = [0, 2, 4, 2, 5, 4, 2, 0, 1, 3, 4, 3, 2, 4, 0, 2];
-    const bass = [0, 0, 3, 3];
-    let step = 0;
-    const play = ()=>{
-      if(!this.enabled || !this.ctx) return;
-      const n = notes[melody[step % melody.length]];
-      this.musicTone(n, 0.42, 0.085, 'triangle', 1500);
-      if(step % 4 === 0){
-        const bn = notes[bass[(step/4) % bass.length]] / 4;
-        this.musicTone(bn, 0.9, 0.06, 'sine', 900);
-      }
-      if(step % 8 === 6) this.musicHat(0.035);
-      step++;
-    };
-    play();
-    this.musicTimer = setInterval(play, 300);
-  },
-  musicTone(f, dur, v, wave, cutoff){
+  musicTone(f, dur, v, wave, cutoff, when){
     if(!this.ctx || !this.enabled) return;
     try{
-      const t = this.ctx.currentTime;
+      const t = (when != null) ? when : this.ctx.currentTime;
       const o = this.ctx.createOscillator();
       o.type = wave || 'triangle'; o.frequency.value = f;
       const g = this.ctx.createGain();
@@ -1613,23 +1635,29 @@ const SFX = {
       const fl = this.ctx.createBiquadFilter();
       fl.type = 'lowpass'; fl.frequency.value = cutoff || 2200;
       o.connect(fl); fl.connect(g); g.connect(this.musicGain);
+      /* بعد از پایان نت، گره‌ها را آزاد کن تا در بازی‌های طولانی انباشته نشوند */
+      o.onended = ()=>{ try{ o.disconnect(); fl.disconnect(); g.disconnect(); }catch(e){} };
       o.start(t); o.stop(t + dur + 0.05);
     }catch(e){}
   },
-  musicHat(v){
+  musicHat(v, when){
     if(!this.ctx || !this.enabled) return;
     try{
-      const t = this.ctx.currentTime;
-      const sr = this.ctx.sampleRate;
-      const bl = Math.floor(sr * 0.03);
-      const b = this.ctx.createBuffer(1, bl, sr);
-      const d = b.getChannelData(0);
-      for(let i=0;i<bl;i++) d[i] = (Math.random()*2-1) * (1 - i/bl);
-      const s = this.ctx.createBufferSource(); s.buffer = b;
+      const t = (when != null) ? when : this.ctx.currentTime;
+      if(!this._hatBuf || this._hatBufCtx !== this.ctx){
+        const sr = this.ctx.sampleRate;
+        const bl = Math.floor(sr * 0.03);
+        const b = this.ctx.createBuffer(1, bl, sr);
+        const d = b.getChannelData(0);
+        for(let i=0;i<bl;i++) d[i] = (Math.random()*2-1) * (1 - i/bl);
+        this._hatBuf = b; this._hatBufCtx = this.ctx;
+      }
+      const s = this.ctx.createBufferSource(); s.buffer = this._hatBuf;
       const f = this.ctx.createBiquadFilter();
       f.type = 'highpass'; f.frequency.value = 6000;
       const g = this.ctx.createGain(); g.gain.value = v != null ? v : 0.06;
-      s.connect(f); s.connect(g); g.connect(this.musicGain);
+      s.connect(f); f.connect(g); g.connect(this.musicGain);
+      s.onended = ()=>{ try{ s.disconnect(); f.disconnect(); g.disconnect(); }catch(e){} };
       s.start(t);
     }catch(e){}
   }
@@ -1782,14 +1810,39 @@ let intentionalClose = false;
 let hasConnectedBefore = false;
 const pendingMsgs = [];
 
+/* نشست در localStorage ذخیره می‌شود تا با بستن مرورگر/تب هم از بین نرود.
+   سرور تا ۳ دقیقه جای بازیکن را نگه می‌دارد، پس نشست‌های قدیمی‌تر بی‌اعتبارند. */
+const SESSION_KEY = 'khatkhati_session';
+const SESSION_MAX_AGE_MS = 4 * 60 * 1000;
+let displacedByOtherTab = false;
 function saveSession(code, playerId){
-  try{ sessionStorage.setItem('khatkhati_session', JSON.stringify({code, playerId})); }catch(e){}
+  const data = JSON.stringify({code, playerId, ts: Date.now()});
+  try{ localStorage.setItem(SESSION_KEY, data); return; }catch(e){}
+  try{ sessionStorage.setItem(SESSION_KEY, data); }catch(e){}
 }
 function loadSession(){
-  try{ return JSON.parse(sessionStorage.getItem('khatkhati_session')||'null'); }catch(e){ return null; }
+  let raw = null;
+  try{ raw = localStorage.getItem(SESSION_KEY); }catch(e){}
+  if(!raw){ try{ raw = sessionStorage.getItem(SESSION_KEY); }catch(e){} }
+  if(!raw) return null;
+  let s = null;
+  try{ s = JSON.parse(raw); }catch(e){ s = null; }
+  if(!s || !s.code || !s.playerId) return null;
+  if(s.ts && Date.now() - s.ts > SESSION_MAX_AGE_MS){ clearSession(); return null; }
+  return s;
 }
 function clearSession(){
-  try{ sessionStorage.removeItem('khatkhati_session'); }catch(e){}
+  try{ localStorage.removeItem(SESSION_KEY); }catch(e){}
+  try{ sessionStorage.removeItem(SESSION_KEY); }catch(e){}
+}
+/* زمانِ آخرین فعالیت را تازه نگه می‌دارد تا نشستِ بازی‌های طولانی منقضی نشود */
+let _lastTouch = 0;
+function touchSession(force){
+  if(!S.code || !S.me.id) return;
+  const now = Date.now();
+  if(!force && now - _lastTouch < 20000) return;
+  _lastTouch = now;
+  saveSession(S.code, S.me.id);
 }
 
 /* ============================= بازی محلی روی هات‌اسپات (بدون اینترنت) ============================= */
@@ -1893,7 +1946,7 @@ function connectWs(){
     wsReady = true;
     reconnectAttempt = 0;
 
-    const session = loadSession();
+    const session = displacedByOtherTab ? null : loadSession();
     if(session && session.code && session.playerId){
       if(!hasConnectedBefore){
         /* اولین اتصال در این نشست صفحه: قبل از برگشت به بازی از کاربر می‌پرسیم */
@@ -2029,6 +2082,7 @@ function hideReturnConfirmDialog(){
   dlg.innerHTML = '';
 }
 
+window.addEventListener('pagehide', ()=> touchSession(true));
 window.addEventListener('online', ()=>{
   if(!wsReady){ connectWs(); }
 });
@@ -2037,6 +2091,7 @@ document.addEventListener('visibilitychange', ()=>{
     connectWs();
   }
   if(document.visibilityState === 'hidden'){
+    touchSession(true);
     if(SFX.musicTimer){ SFX._pausedTrack = SFX.currentTrack; SFX.stopMusic(); }
     if(SFX.ctx && SFX.ctx.state === 'running'){ try{ SFX.ctx.suspend(); }catch(e){} }
     /* اگر کاربر وسط یک بازی/اتاق باشد و صفحه را به پس‌زمینه ببرد، اگر بعداً
@@ -2139,6 +2194,7 @@ document.addEventListener('click', (e)=>{
 function onServerMessage(msg){
   switch(msg.type){
     case 'joined':
+      displacedByOtherTab = false;
       /* کد اتاق همیشه با ارقام انگلیسی نمایش داده می‌شود */
       S.code = msg.code || '';
       S.me.id = msg.playerId; S.isHost = msg.isHost;
@@ -2156,7 +2212,8 @@ function onServerMessage(msg){
         }
       });
       if(msg.fatal){
-        clearSession();
+        /* اگر همین حساب در تب دیگری باز شده، نشست مشترک را پاک نکن */
+        if(msg.displaced) displacedByOtherTab = true; else clearSession();
         S.code = null; S.me.id = null; S.isHost = false; S.meta = null;
         goTo('home');
       }
@@ -2180,6 +2237,7 @@ function onServerMessage(msg){
       const prevSeq = S.meta ? S.meta.turnSeq : null;
       S.meta = msg.meta; S.players = msg.players;
       S.isHost = msg.meta.hostId === S.me.id;
+      touchSession();
       /* کد اتاق همیشه با ارقام انگلیسی نمایش داده می‌شود */
       if(msg.meta && msg.meta.code) S.code = msg.meta.code;
       let changed;
@@ -2845,6 +2903,14 @@ function updateTimerDisplay(){
   }
 }
 
+/* فقط وقتی محتوا واقعاً عوض شده دکمه‌ها را دوباره بساز؛ وگرنه کلیکِ کاربر وسط بازسازی گم می‌شود */
+function setGuessOptionsHTML(el, html){
+  if(el.dataset.sig === html && (html !== '' || el.innerHTML === '')) return false;
+  el.dataset.sig = html;
+  el.innerHTML = html;
+  return true;
+}
+
 function updateGameDynamic(prevStatus, prevSeq){
   const meta = S.meta;
   const players = S.players;
@@ -2911,10 +2977,10 @@ function updateGameDynamic(prevStatus, prevSeq){
     canvas.classList.toggle('canvas-disabled', !iAmDrawer);
     const myAnswer = meta.myAnswer;
     if(iAmDrawer){
-      guessOptions.innerHTML = '';
+      setGuessOptionsHTML(guessOptions, '');
     } else if(myAnswer || S.pickedOption){
       const pickedWord = myAnswer ? myAnswer.word : S.pickedOption;
-      guessOptions.innerHTML = (meta.options||[]).map(w=>{
+      setGuessOptionsHTML(guessOptions, (meta.options||[]).map(w=>{
         let cls = 'guess-option-btn';
         if(w === pickedWord){
           if(myAnswer) cls += myAnswer.correct ? ' picked-correct' : ' picked-wrong';
@@ -2923,21 +2989,24 @@ function updateGameDynamic(prevStatus, prevSeq){
         return `<button type="button" class="${cls}" disabled data-w="${escapeHtml(w)}">${escapeHtml(w)}</button>`;
       }).join('') + (myAnswer
         ? `<div class="guess-waiting-note">${myAnswer.correct ? 'درست حدس زدی! منتظر بمان...' : 'اشتباه حدس زدی! برای این نوبت دیگر نمی‌توانی حدس بزنی.'}</div>`
-        : '');
+        : ''));
     } else {
-      guessOptions.innerHTML = (meta.options||[]).map(w=>
+      const changed = setGuessOptionsHTML(guessOptions, (meta.options||[]).map(w=>
         `<button type="button" class="guess-option-btn" data-w="${escapeHtml(w)}">${escapeHtml(w)}</button>`
-      ).join('');
-      $$('.guess-option-btn', guessOptions).forEach(b=> b.onclick = ()=>{
-        SFX.optionPick();
-        S.pickedOption = b.dataset.w;
-        sendMsg('guess', {word: b.dataset.w});
-        updateGameDynamic();
-      });
+      ).join(''));
+      if(changed){
+        $$('.guess-option-btn', guessOptions).forEach(b=> b.onclick = ()=>{
+          if(S.pickedOption) return;
+          SFX.optionPick();
+          S.pickedOption = b.dataset.w;
+          sendMsg('guess', {word: b.dataset.w});
+          updateGameDynamic();
+        });
+      }
     }
   } else if(meta.status === 'turnEnd'){
     toolbar.style.display = 'none';
-    guessOptions.innerHTML = '';
+    setGuessOptionsHTML(guessOptions, '');
     canvas.classList.add('canvas-disabled');
   }
 
@@ -3090,6 +3159,7 @@ function appendChatMessage(g){
     div.innerHTML = `<b>${escapeHtml(g.name)}:</b> ${escapeHtml(g.text)}`;
   }
   box.appendChild(div);
+  /* فقط خودِ جعبه‌ی چت اسکرول می‌شود، نه کل صفحه */
   box.scrollTop = box.scrollHeight;
 }
 

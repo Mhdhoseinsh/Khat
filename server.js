@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const PORT = process.env.PORT || 3000;
 const ADVANCE_DELAY = process.env.FAST_TEST === '1' ? 300 : 7000;
 const READY_COUNTDOWN_MS = process.env.FAST_TEST === '1' ? 800 : 10000;
-const DISCONNECT_GRACE_MS = 60 * 1000; /* ۱ دقیقه فرصت برگشت */
+const DISCONNECT_GRACE_MS = 3 * 60 * 1000; /* ۳ دقیقه فرصت برگشت (بستن مرورگر/رفرش/قطعی) */
 const REPLAY_WINDOW_MS = process.env.FAST_TEST === '1' ? 2000 : 45000;
 
 /* ============================= static file ============================= */
@@ -294,7 +294,7 @@ function scheduleEmptyCleanup(room){
       rooms.delete(room.code);
       broadcastPublicRooms();
     }
-  }, 20*1000);
+  }, DISCONNECT_GRACE_MS + 5000); /* تا پایان مهلتِ برگشتِ بازیکن‌ها اتاق را نگه دار */
 }
 
 function computeNextTurnInfo(room){
@@ -363,6 +363,13 @@ function startGameForRoom(room){
   clearTimeout(room.replayTimer);
   room.replayVotes = new Set();
   room.replayEndAt = 0;
+  /* بازیکن‌های قطع‌شده‌ی لابی (که منتظر برگشتن بودند) در شروع بازی کنار گذاشته می‌شوند */
+  Array.from(room.players.values()).forEach(p=>{
+    if(!p.connected){
+      if(p.disconnectTimer){ clearTimeout(p.disconnectTimer); p.disconnectTimer = null; }
+      room.players.delete(p.id);
+    }
+  });
   room.players.forEach(p=> { p.ready = false; });
   const ids = activePlayers(room).map(p=>p.id);
   if(ids.length < 2) return false;
@@ -597,7 +604,7 @@ function handleMessage(conn, msg){
        قبل از جایگزینی، به آن اتصالِ قدیمی خبر بده و آن را ببند تا آن تب
        بی‌سروصدا و بدون توضیح از کار نیفتد */
     if(player.connected && player.socket && player.socket !== conn.socket){
-      send(player, 'errorMsg', {message:'این حساب از یک صفحه‌ی دیگر به این اتاق وصل شد', fatal:true});
+      send(player, 'errorMsg', {message:'این حساب از یک صفحه‌ی دیگر به این اتاق وصل شد', fatal:true, displaced:true});
       try{ player.socket.end(); }catch(e){}
     }
     player.socket = conn.socket;
@@ -798,12 +805,17 @@ function handleDisconnect(conn){
   player.socket = null;
 
   if(room.status === 'lobby'){
-    /* در لابی: حذف فوری */
-    room.players.delete(player.id);
+    /* در لابی هم جای بازیکن مدتی نگه داشته می‌شود تا با برگشتن به سایت
+       دوباره وارد همین اتاق شود؛ در این مدت به‌صورت «قطع‌شده» حساب می‌شود */
     if(room.hostId === player.id){
       const next = activePlayers(room)[0];
       if(next) room.hostId = next.id;
     }
+    if(player.disconnectTimer) clearTimeout(player.disconnectTimer);
+    player.disconnectTimer = setTimeout(()=>{
+      const p = room.players.get(player.id);
+      if(p && !p.connected) handlePlayerLeave(room, player.id);
+    }, DISCONNECT_GRACE_MS);
     evaluateReadyState(room);
     broadcastState(room);
     broadcastPublicRooms();
